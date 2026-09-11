@@ -1,0 +1,14 @@
+# Normalize text files to LF inside the Git repository
+* text=auto eol=lf
+
+# Keep Windows command scripts native when checked out
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never perform text conversion on binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

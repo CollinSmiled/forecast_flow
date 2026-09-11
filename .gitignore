@@ -1,0 +1,16 @@
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Editor-specific files
+.idea/
+.vscode/
+*.swp
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+
+# Temporary local files
+.tmp/
