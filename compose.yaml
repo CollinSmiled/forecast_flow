@@ -1,0 +1,39 @@
+name: forecast-flow
+
+services:
+  api:
+    image: forecast-flow-api:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+
+    environment:
+      HTTP_PORT: "8080"
+
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --tries=1
+        - --spider
+        - http://127.0.0.1:8080/health/live
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 15s
+    restart: unless-stopped

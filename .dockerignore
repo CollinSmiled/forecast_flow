@@ -1,0 +1,14 @@
+.git
+.github
+.tmp
+
+.env
+.env.*
+
+**/node_modules
+**/dist
+**/coverage
+
+warehouse/dbt/logs
+warehouse/dbt/target
+warehouse/dbt/dbt_packages
