@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          unformatted="$(gofmt -l .)"
+
+          if [ -n "$unformatted" ]; then
+            echo "The following files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run static analysis
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test -race -cover ./...
+
+      - name: Build API
+        run: go build ./apps/api
+
+  container:
+    name: Container checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Validate Dockerfile
+        run: docker build --check -f infrastructure/docker/api.Dockerfile .
+
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+      - name: Build Compose services
+        run: docker compose build
+
+      - name: Start Compose services
+        run: docker compose up --detach --wait
+
+      - name: Check API response
+        run: curl --fail --show-error http://127.0.0.1:8080/health/live
+
+      - name: Print logs after failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Clean up Compose
+        if: always()
+        run: docker compose down
