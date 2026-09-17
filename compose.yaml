@@ -63,5 +63,23 @@ services:
     stop_grace_period: 30s
     restart: unless-stopped
 
+  migrate:
+    image: migrate/migrate:v4.19.1
+
+    profiles:
+      - tools
+
+    volumes:
+      - ./database/migrations:/migrations:ro
+
+    command:
+      - -path=/migrations
+      - -database=postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable
+      - up
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
