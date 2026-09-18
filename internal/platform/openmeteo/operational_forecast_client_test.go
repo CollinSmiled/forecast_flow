@@ -2,11 +2,100 @@ package openmeteo
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/CollinSmiled/forecast_flow/internal/location"
 )
+
+func TestOperationalForecastClientFetchOperationalForecast(
+	t *testing.T,
+) {
+	payload := testOperationalPayload()
+
+	server := httptest.NewServer(http.HandlerFunc(
+		func(response http.ResponseWriter, _ *http.Request) {
+			response.Header().Set(
+				"Content-Type",
+				"application/json",
+			)
+
+			if err := json.NewEncoder(response).Encode(payload); err != nil {
+				t.Errorf("encode response: %v", err)
+			}
+		},
+	))
+	defer server.Close()
+
+	client := newOperationalForecastClient(
+		server.URL,
+		server.Client(),
+	)
+
+	retrievedAt := time.Date(
+		2026,
+		time.September,
+		17,
+		10,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
+	client.now = func() time.Time {
+		return retrievedAt
+	}
+
+	snapshot, err := client.FetchOperationalForecast(
+		context.Background(),
+		location.Location{
+			ID:        3,
+			City:      "Jakarta",
+			Country:   "Indonesia",
+			Latitude:  -6.21462,
+			Longitude: 106.84513,
+			Timezone:  "Asia/Jakarta",
+		},
+		10,
+	)
+	if err != nil {
+		t.Fatalf("fetch operational forecast: %v", err)
+	}
+
+	if snapshot.LocationID != 3 {
+		t.Errorf(
+			"location ID = %d, want 3",
+			snapshot.LocationID,
+		)
+	}
+
+	if !snapshot.RetrievedAt.Equal(retrievedAt) {
+		t.Errorf(
+			"retrieval time = %v, want %v",
+			snapshot.RetrievedAt,
+			retrievedAt,
+		)
+	}
+
+	if len(snapshot.Hourly) != 2 {
+		t.Errorf(
+			"hourly count = %d, want 2",
+			len(snapshot.Hourly),
+		)
+	}
+
+	if len(snapshot.Daily) != 1 {
+		t.Errorf(
+			"daily count = %d, want 1",
+			len(snapshot.Daily),
+		)
+	}
+}
 
 func TestOperationalForecastClientFetch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(

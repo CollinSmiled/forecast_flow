@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/CollinSmiled/forecast_flow/internal/forecast"
+	"github.com/CollinSmiled/forecast_flow/internal/location"
 )
 
 type OperationalForecastClient struct {
 	baseURL    string
 	httpClient *http.Client
+	now        func() time.Time
 }
 
 func NewOperationalForecastClient() *OperationalForecastClient {
@@ -28,7 +33,40 @@ func newOperationalForecastClient(
 	return &OperationalForecastClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		httpClient: httpClient,
+		now:        time.Now,
 	}
+}
+
+func (client *OperationalForecastClient) FetchOperationalForecast(
+	ctx context.Context,
+	selectedLocation location.Location,
+	forecastDays int,
+) (forecast.OperationalForecastSnapshot, error) {
+	request := OperationalForecastRequest{
+		Latitude:     selectedLocation.Latitude,
+		Longitude:    selectedLocation.Longitude,
+		Timezone:     selectedLocation.Timezone,
+		ForecastDays: forecastDays,
+	}
+
+	payload, err := client.fetch(ctx, request)
+	if err != nil {
+		return forecast.OperationalForecastSnapshot{}, err
+	}
+
+	snapshot, err := mapOperationalForecast(
+		selectedLocation.ID,
+		client.now(),
+		payload,
+	)
+	if err != nil {
+		return forecast.OperationalForecastSnapshot{}, fmt.Errorf(
+			"map Open-Meteo operational forecast: %w",
+			err,
+		)
+	}
+
+	return snapshot, nil
 }
 
 func (client *OperationalForecastClient) fetch(
