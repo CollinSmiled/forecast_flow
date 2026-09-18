@@ -5,23 +5,18 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
-const (
-	singleRunsBaseURL = "https://single-runs-api.open-meteo.com"
-)
+const operationalForecastBaseURL = "https://api.open-meteo.com"
 
-type SingleRunRequest struct {
-	Latitude      float64
-	Longitude     float64
-	Timezone      string
-	ModelID       string
-	ForecastRunAt time.Time
-	ForecastDays  int
+type OperationalForecastRequest struct {
+	Latitude     float64
+	Longitude    float64
+	Timezone     string
+	ForecastDays int
 }
 
-func (request SingleRunRequest) validate() error {
+func (request OperationalForecastRequest) validate() error {
 	if request.Latitude < -90 || request.Latitude > 90 {
 		return fmt.Errorf("latitude must be between -90 and 90")
 	}
@@ -32,24 +27,6 @@ func (request SingleRunRequest) validate() error {
 
 	if strings.TrimSpace(request.Timezone) == "" {
 		return fmt.Errorf("timezone is required")
-	}
-
-	if strings.TrimSpace(request.ModelID) == "" {
-		return fmt.Errorf("model ID is required")
-	}
-
-	if request.ForecastRunAt.IsZero() {
-		return fmt.Errorf("forecast run time is required")
-	}
-
-	runAt := request.ForecastRunAt.UTC()
-
-	if runAt.Minute() != 0 ||
-		runAt.Second() != 0 ||
-		runAt.Nanosecond() != 0 {
-		return fmt.Errorf(
-			"forecast run time must align to a whole UTC hour",
-		)
 	}
 
 	if request.ForecastDays < 1 ||
@@ -63,23 +40,28 @@ func (request SingleRunRequest) validate() error {
 	return nil
 }
 
-func buildSingleRunEndpoint(
+func buildOperationalForecastEndpoint(
 	baseURL string,
-	request SingleRunRequest,
+	request OperationalForecastRequest,
 ) (*url.URL, error) {
 	if err := request.validate(); err != nil {
-		return nil, fmt.Errorf("validate single-run request: %w", err)
+		return nil, fmt.Errorf(
+			"validate operational forecast request: %w",
+			err,
+		)
 	}
 
 	endpoint, err := url.Parse(
 		strings.TrimRight(baseURL, "/") + "/v1/forecast",
 	)
 	if err != nil {
-		return nil, fmt.Errorf("parse single-runs URL: %w", err)
+		return nil, fmt.Errorf(
+			"parse operational forecast URL: %w",
+			err,
+		)
 	}
 
 	parameters := endpoint.Query()
-
 	parameters.Set(
 		"latitude",
 		strconv.FormatFloat(request.Latitude, 'f', -1, 64),
@@ -88,26 +70,23 @@ func buildSingleRunEndpoint(
 		"longitude",
 		strconv.FormatFloat(request.Longitude, 'f', -1, 64),
 	)
-	parameters.Set(
-		"timezone",
-		strings.TrimSpace(request.Timezone),
-	)
-	parameters.Set(
-		"models",
-		strings.TrimSpace(request.ModelID),
-	)
-	parameters.Set(
-		"run",
-		request.ForecastRunAt.UTC().Format("2006-01-02T15:04"),
-	)
+	parameters.Set("timezone", strings.TrimSpace(request.Timezone))
+	parameters.Set("models", "best_match")
 	parameters.Set(
 		"forecast_days",
 		strconv.Itoa(request.ForecastDays),
 	)
-
+	parameters.Set(
+		"current",
+		strings.Join(currentForecastVariables, ","),
+	)
 	parameters.Set(
 		"hourly",
-		strings.Join(singleRunHourlyVariables, ","),
+		strings.Join(operationalHourlyVariables, ","),
+	)
+	parameters.Set(
+		"daily",
+		strings.Join(dailyForecastVariables, ","),
 	)
 	parameters.Set("temperature_unit", "celsius")
 	parameters.Set("wind_speed_unit", "kmh")
