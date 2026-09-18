@@ -6,9 +6,10 @@ import (
 	"time"
 )
 
-// HourlyForecast represents one predicted valid hour.
+// WeatherMetrics contains weather measurements shared by current and
+// hourly forecast records.
 //
-// Units used by our application contract:
+// Units used by the application contract:
 //   - temperatures: degrees Celsius
 //   - humidity, precipitation probability, cloud cover: percent
 //   - precipitation, rain, showers, snowfall: millimetres
@@ -16,10 +17,7 @@ import (
 //   - visibility: metres
 //   - wind speed and gusts: kilometres per hour
 //   - wind direction: degrees
-type HourlyForecast struct {
-	ValidAt       time.Time
-	LeadTimeHours int
-
+type WeatherMetrics struct {
 	Temperature2M            *float64
 	ApparentTemperature      *float64
 	RelativeHumidity2M       *float64
@@ -37,6 +35,29 @@ type HourlyForecast struct {
 	WindGusts10M             *float64
 	UVIndex                  *float64
 	IsDay                    *bool
+}
+
+// HourlyForecast represents one predicted valid hour from an exact
+// model run.
+type HourlyForecast struct {
+	ValidAt       time.Time
+	LeadTimeHours int
+	WeatherMetrics
+}
+
+// OperationalHourlyForecast represents one hour from the latest
+// operational forecast. It has no exact model-run identity.
+type OperationalHourlyForecast struct {
+	ValidAt time.Time
+	WeatherMetrics
+}
+
+// CurrentConditions represents the provider's current conditions at
+// one valid instant.
+type CurrentConditions struct {
+	ValidAt         time.Time
+	IntervalSeconds int
+	WeatherMetrics
 }
 
 func NewHourlyForecast(
@@ -103,4 +124,16 @@ func NewDailyForecast(date string) (DailyForecast, error) {
 type ForecastRun struct {
 	Run    Run
 	Hourly []HourlyForecast
+}
+
+// OperationalForecastSnapshot is the complete forecast visible to the
+// application at one retrieval time.
+type OperationalForecastSnapshot struct {
+	LocationID  int64
+	Source      string
+	RetrievedAt time.Time
+	Timezone    string
+	Current     CurrentConditions
+	Hourly      []OperationalHourlyForecast
+	Daily       []DailyForecast
 }
