@@ -8,15 +8,20 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/api/httpapi"
+	"github.com/CollinSmiled/forecast_flow/internal/location"
+	"github.com/CollinSmiled/forecast_flow/internal/platform/openmeteo"
+	"github.com/CollinSmiled/forecast_flow/internal/platform/postgres"
 )
 
 const (
-	defaultHTTPPort = "8080"
-	shutdownTimeout = 10 * time.Second
+	defaultHTTPPort            = "8080"
+	defaultAllowedCountryCodes = "ID,SG,MY,TH,VN,PH,JP,KR,CN"
+	shutdownTimeout            = 10 * time.Second
 )
 
 func main() {
@@ -38,9 +43,46 @@ func main() {
 func run(ctx context.Context, logger *slog.Logger) error {
 	port := envOrDefault("HTTP_PORT", defaultHTTPPort)
 
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+
+	database, err := postgres.Open(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer database.Close()
+
+	locationRepository := location.NewRepository(database)
+	geocodingClient := openmeteo.NewGeocodingClient()
+
+	allowedCountryCodes := strings.Split(
+		envOrDefault(
+			"ALLOWED_COUNTRY_CODES",
+			defaultAllowedCountryCodes,
+		),
+		",",
+	)
+
+	locationService, err := location.NewService(
+		geocodingClient,
+		locationRepository,
+		allowedCountryCodes,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"create location service: %w",
+			err,
+		)
+	}
+
 	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           httpapi.NewRouter(),
+		Addr: ":" + port,
+		Handler: httpapi.NewRouter(
+			database,
+			locationService,
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
