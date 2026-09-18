@@ -127,6 +127,84 @@ func TestGeocodingClientSearchLocations(t *testing.T) {
 	}
 }
 
+func TestGeocodingClientGetLocation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(response http.ResponseWriter, request *http.Request) {
+			if request.URL.Path != "/v1/get" {
+				t.Errorf(
+					"path = %q, want %q",
+					request.URL.Path,
+					"/v1/get",
+				)
+			}
+
+			if request.URL.Query().Get("id") != "1642911" {
+				t.Errorf(
+					"id = %q, want %q",
+					request.URL.Query().Get("id"),
+					"1642911",
+				)
+			}
+
+			response.Header().Set(
+				"Content-Type",
+				"application/json",
+			)
+
+			_, _ = response.Write([]byte(`{
+				"id": 1642911,
+				"name": "Jakarta",
+				"latitude": -6.21462,
+				"longitude": 106.84513,
+				"elevation": 16,
+				"country_code": "ID",
+				"timezone": "Asia/Jakarta",
+				"population": 8540121,
+				"country": "Indonesia",
+				"admin1": "Jakarta Special Capital Region"
+			}`))
+		},
+	))
+	defer server.Close()
+
+	client := newGeocodingClient(
+		server.URL,
+		server.Client(),
+	)
+
+	found, err := client.GetLocation(
+		context.Background(),
+		1642911,
+	)
+	if err != nil {
+		t.Fatalf("get location: %v", err)
+	}
+
+	if found.OpenMeteoLocationID != 1642911 {
+		t.Errorf(
+			"Open-Meteo ID = %d, want %d",
+			found.OpenMeteoLocationID,
+			1642911,
+		)
+	}
+
+	if found.City != "Jakarta" {
+		t.Errorf(
+			"city = %q, want %q",
+			found.City,
+			"Jakarta",
+		)
+	}
+
+	if found.Timezone != "Asia/Jakarta" {
+		t.Errorf(
+			"timezone = %q, want %q",
+			found.Timezone,
+			"Asia/Jakarta",
+		)
+	}
+}
+
 func TestGeocodingClientReturnsProviderError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(response http.ResponseWriter, _ *http.Request) {
@@ -202,5 +280,17 @@ func TestGeocodingClientRejectsInvalidInput(t *testing.T) {
 				t.Fatal("expected an error")
 			}
 		})
+	}
+}
+
+func TestGeocodingClientRejectsInvalidLocationID(t *testing.T) {
+	client := NewGeocodingClient()
+
+	_, err := client.GetLocation(
+		context.Background(),
+		0,
+	)
+	if err == nil {
+		t.Fatal("expected an error")
 	}
 }

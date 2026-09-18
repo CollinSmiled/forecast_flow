@@ -90,55 +90,10 @@ func (client *GeocodingClient) SearchLocations(
 
 	endpoint.RawQuery = parameters.Encode()
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		endpoint.String(),
-		nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"create Open-Meteo geocoding request: %w",
-			err,
-		)
-	}
-
-	request.Header.Set("Accept", "application/json")
-
-	response, err := client.httpClient.Do(request)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"request Open-Meteo geocoding: %w",
-			err,
-		)
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(
-		response.Body,
-		maximumResponseSize+1,
-	))
-	if err != nil {
-		return nil, fmt.Errorf(
-			"read Open-Meteo geocoding response: %w",
-			err,
-		)
-	}
-
-	if len(body) > maximumResponseSize {
-		return nil, errors.New(
-			"read Open-Meteo geocoding response: response is too large",
-		)
-	}
-
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, decodeGeocodingError(response.StatusCode, body)
-	}
-
 	var payload geocodingResponse
-	if err := json.Unmarshal(body, &payload); err != nil {
+	if err := client.getJSON(ctx, endpoint, &payload); err != nil {
 		return nil, fmt.Errorf(
-			"decode Open-Meteo geocoding response: %w",
+			"search Open-Meteo locations: %w",
 			err,
 		)
 	}
@@ -161,6 +116,102 @@ func (client *GeocodingClient) SearchLocations(
 	}
 
 	return locations, nil
+}
+
+func (client *GeocodingClient) GetLocation(
+	ctx context.Context,
+	openMeteoLocationID int64,
+) (location.Location, error) {
+	if openMeteoLocationID <= 0 {
+		return location.Location{}, errors.New(
+			"get Open-Meteo location: location ID must be positive",
+		)
+	}
+
+	endpoint, err := url.Parse(client.baseURL + "/v1/get")
+	if err != nil {
+		return location.Location{}, fmt.Errorf(
+			"parse Open-Meteo URL: %w",
+			err,
+		)
+	}
+
+	parameters := endpoint.Query()
+	parameters.Set(
+		"id",
+		strconv.FormatInt(openMeteoLocationID, 10),
+	)
+	endpoint.RawQuery = parameters.Encode()
+
+	var result geocodingResult
+	if err := client.getJSON(ctx, endpoint, &result); err != nil {
+		return location.Location{}, fmt.Errorf(
+			"get Open-Meteo location: %w",
+			err,
+		)
+	}
+
+	if result.ID == 0 ||
+		result.Name == "" ||
+		result.Country == "" ||
+		result.CountryCode == "" ||
+		result.Timezone == "" {
+		return location.Location{}, errors.New(
+			"get Open-Meteo location: response is incomplete",
+		)
+	}
+
+	return result.location(), nil
+}
+
+func (client *GeocodingClient) getJSON(
+	ctx context.Context,
+	endpoint *url.URL,
+	target any,
+) error {
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		endpoint.String(),
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.httpClient.Do(request)
+	if err != nil {
+		return fmt.Errorf("perform request: %w", err)
+	}
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(
+		response.Body,
+		maximumResponseSize+1,
+	))
+	if err != nil {
+		return fmt.Errorf("read response: %w", err)
+	}
+
+	if len(body) > maximumResponseSize {
+		return errors.New("response is too large")
+	}
+
+	if response.StatusCode < http.StatusOK ||
+		response.StatusCode >= http.StatusMultipleChoices {
+		return decodeGeocodingError(
+			response.StatusCode,
+			body,
+		)
+	}
+
+	if err := json.Unmarshal(body, target); err != nil {
+		return fmt.Errorf("decode response: %w", err)
+	}
+
+	return nil
 }
 
 type geocodingResponse struct {
