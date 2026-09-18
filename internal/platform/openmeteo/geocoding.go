@@ -2,24 +2,19 @@ package openmeteo
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/location"
 )
 
 const (
-	geocodingBaseURL    = "https://geocoding-api.open-meteo.com"
-	defaultHTTPTimeout  = 10 * time.Second
-	maximumSearchLimit  = 100
-	maximumResponseSize = 2 << 20
+	geocodingBaseURL   = "https://geocoding-api.open-meteo.com"
+	maximumSearchLimit = 100
 )
 
 type GeocodingClient struct {
@@ -169,49 +164,13 @@ func (client *GeocodingClient) getJSON(
 	endpoint *url.URL,
 	target any,
 ) error {
-	request, err := http.NewRequestWithContext(
+	return requestJSON(
 		ctx,
-		http.MethodGet,
-		endpoint.String(),
-		nil,
+		client.httpClient,
+		endpoint,
+		"geocoding",
+		target,
 	)
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-
-	request.Header.Set("Accept", "application/json")
-
-	response, err := client.httpClient.Do(request)
-	if err != nil {
-		return fmt.Errorf("perform request: %w", err)
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(io.LimitReader(
-		response.Body,
-		maximumResponseSize+1,
-	))
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
-
-	if len(body) > maximumResponseSize {
-		return errors.New("response is too large")
-	}
-
-	if response.StatusCode < http.StatusOK ||
-		response.StatusCode >= http.StatusMultipleChoices {
-		return decodeGeocodingError(
-			response.StatusCode,
-			body,
-		)
-	}
-
-	if err := json.Unmarshal(body, target); err != nil {
-		return fmt.Errorf("decode response: %w", err)
-	}
-
-	return nil
 }
 
 type geocodingResponse struct {
@@ -250,26 +209,4 @@ func (result geocodingResult) location() location.Location {
 		Population:          result.Population,
 		AdministrativeArea:  administrativeArea,
 	}
-}
-
-type geocodingErrorResponse struct {
-	Reason string `json:"reason"`
-}
-
-func decodeGeocodingError(statusCode int, body []byte) error {
-	var payload geocodingErrorResponse
-
-	if err := json.Unmarshal(body, &payload); err == nil &&
-		payload.Reason != "" {
-		return fmt.Errorf(
-			"Open-Meteo geocoding returned status %d: %s",
-			statusCode,
-			payload.Reason,
-		)
-	}
-
-	return fmt.Errorf(
-		"Open-Meteo geocoding returned status %d",
-		statusCode,
-	)
 }
