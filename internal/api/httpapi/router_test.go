@@ -21,7 +21,10 @@ func TestLiveness(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/health/live", nil)
 	response := httptest.NewRecorder()
 
-	NewRouter(stubReadinessChecker{}).ServeHTTP(response, request)
+	NewRouter(
+		stubReadinessChecker{},
+		&stubLocationService{},
+	).ServeHTTP(response, request)
 
 	assertHealthResponse(
 		t,
@@ -60,9 +63,12 @@ func TestReadiness(t *testing.T) {
 			)
 			response := httptest.NewRecorder()
 
-			NewRouter(stubReadinessChecker{
-				err: test.databaseError,
-			}).ServeHTTP(response, request)
+			NewRouter(
+				stubReadinessChecker{
+					err: test.databaseError,
+				},
+				&stubLocationService{},
+			).ServeHTTP(response, request)
 
 			assertHealthResponse(
 				t,

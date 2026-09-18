@@ -18,7 +18,10 @@ type healthResponse struct {
 	Status  string `json:"status"`
 }
 
-func NewRouter(readinessChecker ReadinessChecker) http.Handler {
+func NewRouter(
+	readinessChecker ReadinessChecker,
+	locationService LocationService,
+) http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("GET /health/live", liveness)
@@ -26,6 +29,8 @@ func NewRouter(readinessChecker ReadinessChecker) http.Handler {
 		"GET /health/ready",
 		readiness(readinessChecker),
 	)
+
+	registerLocationRoutes(router, locationService)
 
 	return router
 }

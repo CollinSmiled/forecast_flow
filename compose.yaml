@@ -11,6 +11,7 @@ services:
     environment:
       HTTP_PORT: "8080"
       DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      ALLOWED_COUNTRY_CODES: "${ALLOWED_COUNTRY_CODES:-ID,SG,MY,TH,VN,PH,JP,KR,CN}"
 
     ports:
       - "${API_PORT:-8080}:8080"
