@@ -2,11 +2,11 @@ FROM golang:1.27.1-alpine AS build
 
 WORKDIR /src
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY apps/api ./apps/api
-COPY internal/api ./internal/api
+COPY internal ./internal
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/api/httpapi"
+	"github.com/CollinSmiled/forecast_flow/internal/platform/postgres"
 )
 
 const (
@@ -38,9 +39,20 @@ func main() {
 func run(ctx context.Context, logger *slog.Logger) error {
 	port := envOrDefault("HTTP_PORT", defaultHTTPPort)
 
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+
+	database, err := postgres.Open(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer database.Close()
+
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httpapi.NewRouter(),
+		Handler:           httpapi.NewRouter(database),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
