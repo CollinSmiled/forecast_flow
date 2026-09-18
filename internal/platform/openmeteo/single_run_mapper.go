@@ -16,7 +16,7 @@ type seriesLength struct {
 
 func mapHourlyForecasts(
 	run forecast.Run,
-	payload singleRunResponse,
+	payload forecastResponse,
 ) ([]forecast.HourlyForecast, error) {
 	rowCount := len(payload.Hourly.Time)
 
@@ -213,7 +213,7 @@ func mapIsDay(value *int) (*bool, error) {
 }
 
 func mapDailyForecasts(
-	payload singleRunResponse,
+	payload forecastResponse,
 ) ([]forecast.DailyForecast, error) {
 	rowCount := len(payload.Daily.Time)
 

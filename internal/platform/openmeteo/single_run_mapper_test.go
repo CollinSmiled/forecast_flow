@@ -249,10 +249,10 @@ func testForecastRun(t *testing.T) forecast.Run {
 	return run
 }
 
-func testHourlyPayload() singleRunResponse {
-	return singleRunResponse{
+func testHourlyPayload() forecastResponse {
+	return forecastResponse{
 		Timezone: "Asia/Jakarta",
-		Hourly: singleRunHourly{
+		Hourly: forecastHourly{
 			Time: []string{
 				"2026-09-17T13:00",
 				"2026-09-17T14:00",
@@ -329,10 +329,10 @@ func testHourlyPayload() singleRunResponse {
 	}
 }
 
-func testDailyPayload() singleRunResponse {
-	return singleRunResponse{
+func testDailyPayload() forecastResponse {
+	return forecastResponse{
 		Timezone: "Asia/Jakarta",
-		Daily: singleRunDaily{
+		Daily: forecastDaily{
 			Time: []string{
 				"2026-09-17",
 			},
