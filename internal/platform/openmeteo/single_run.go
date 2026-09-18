@@ -18,7 +18,6 @@ var hourlyForecastVariables = []string{
 	"apparent_temperature",
 	"relative_humidity_2m",
 	"precipitation",
-	"precipitation_probability",
 	"rain",
 	"showers",
 	"snowfall",
@@ -148,11 +147,6 @@ func buildSingleRunEndpoint(
 		"hourly",
 		strings.Join(hourlyForecastVariables, ","),
 	)
-	parameters.Set(
-		"daily",
-		strings.Join(dailyForecastVariables, ","),
-	)
-
 	parameters.Set("temperature_unit", "celsius")
 	parameters.Set("wind_speed_unit", "kmh")
 	parameters.Set("precipitation_unit", "mm")

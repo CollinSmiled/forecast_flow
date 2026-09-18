@@ -35,10 +35,6 @@ func mapHourlyForecasts(
 			len(payload.Hourly.RelativeHumidity2M),
 		},
 		{"precipitation", len(payload.Hourly.Precipitation)},
-		{
-			"precipitation_probability",
-			len(payload.Hourly.PrecipitationProbability),
-		},
 		{"rain", len(payload.Hourly.Rain)},
 		{"showers", len(payload.Hourly.Showers)},
 		{"snowfall", len(payload.Hourly.Snowfall)},
@@ -109,6 +105,19 @@ func mapHourlyForecasts(
 			)
 		}
 
+		precipitationProbability, err := optionalFloatValue(
+			payload.Hourly.PrecipitationProbability,
+			index,
+			rowCount,
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"map precipitation_probability at index %d: %w",
+				index,
+				err,
+			)
+		}
+
 		hourly.Temperature2M =
 			payload.Hourly.Temperature2M[index]
 		hourly.ApparentTemperature =
@@ -118,7 +127,7 @@ func mapHourlyForecasts(
 		hourly.Precipitation =
 			payload.Hourly.Precipitation[index]
 		hourly.PrecipitationProbability =
-			payload.Hourly.PrecipitationProbability[index]
+			precipitationProbability
 		hourly.Rain = payload.Hourly.Rain[index]
 		hourly.Showers = payload.Hourly.Showers[index]
 		hourly.Snowfall = payload.Hourly.Snowfall[index]
@@ -143,6 +152,26 @@ func mapHourlyForecasts(
 	}
 
 	return result, nil
+}
+
+func optionalFloatValue(
+	values []*float64,
+	index int,
+	expected int,
+) (*float64, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+
+	if len(values) != expected {
+		return nil, fmt.Errorf(
+			"optional series contains %d values; expected %d",
+			len(values),
+			expected,
+		)
+	}
+
+	return values[index], nil
 }
 
 func validateSeriesLengths(

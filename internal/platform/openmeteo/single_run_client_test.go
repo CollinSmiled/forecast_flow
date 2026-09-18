@@ -15,7 +15,7 @@ import (
 
 func TestSingleRunClientFetchForecastRun(t *testing.T) {
 	payload := testHourlyPayload()
-	payload.Daily = testDailyPayload().Daily
+	payload.Hourly.PrecipitationProbability = nil
 
 	server := httptest.NewServer(http.HandlerFunc(
 		func(response http.ResponseWriter, _ *http.Request) {
@@ -126,12 +126,6 @@ func TestSingleRunClientFetchForecastRun(t *testing.T) {
 		)
 	}
 
-	if len(result.Daily) != 1 {
-		t.Errorf(
-			"daily count = %d, want 1",
-			len(result.Daily),
-		)
-	}
 }
 
 func TestSingleRunClientFetch(t *testing.T) {

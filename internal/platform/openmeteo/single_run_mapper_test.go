@@ -95,6 +95,41 @@ func TestMapHourlyForecastsRejectsUnequalSeries(
 	}
 }
 
+func TestMapHourlyForecastsAllowsMissingProbability(
+	t *testing.T,
+) {
+	run := testForecastRun(t)
+	payload := testHourlyPayload()
+
+	payload.Hourly.PrecipitationProbability = nil
+
+	hourly, err := mapHourlyForecasts(run, payload)
+	if err != nil {
+		t.Fatalf("map hourly forecasts: %v", err)
+	}
+
+	if hourly[0].PrecipitationProbability != nil {
+		t.Errorf(
+			"precipitation probability = %v, want nil",
+			hourly[0].PrecipitationProbability,
+		)
+	}
+}
+
+func TestMapHourlyForecastsRejectsPartialProbability(
+	t *testing.T,
+) {
+	run := testForecastRun(t)
+	payload := testHourlyPayload()
+
+	payload.Hourly.PrecipitationProbability =
+		payload.Hourly.PrecipitationProbability[:1]
+
+	if _, err := mapHourlyForecasts(run, payload); err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
 func TestMapIsDayRejectsUnexpectedValue(t *testing.T) {
 	value := 2
 

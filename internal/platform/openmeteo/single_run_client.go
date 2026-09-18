@@ -79,18 +79,9 @@ func (client *SingleRunClient) FetchForecastRun(
 		)
 	}
 
-	daily, err := mapDailyForecasts(payload)
-	if err != nil {
-		return forecast.ForecastRun{}, fmt.Errorf(
-			"map daily forecasts: %w",
-			err,
-		)
-	}
-
 	return forecast.ForecastRun{
 		Run:    run,
 		Hourly: hourly,
-		Daily:  daily,
 	}, nil
 }
 
@@ -130,12 +121,6 @@ func (client *SingleRunClient) fetch(
 	if len(payload.Hourly.Time) == 0 {
 		return singleRunResponse{}, fmt.Errorf(
 			"fetch Open-Meteo single run: hourly data is missing",
-		)
-	}
-
-	if len(payload.Daily.Time) == 0 {
-		return singleRunResponse{}, fmt.Errorf(
-			"fetch Open-Meteo single run: daily data is missing",
 		)
 	}
 

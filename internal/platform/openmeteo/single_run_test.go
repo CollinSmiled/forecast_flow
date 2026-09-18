@@ -62,23 +62,24 @@ func TestBuildSingleRunEndpoint(t *testing.T) {
 	assertContainsVariable(
 		t,
 		query.Get("hourly"),
-		"precipitation_probability",
-	)
-	assertContainsVariable(
-		t,
-		query.Get("hourly"),
 		"uv_index",
 	)
-	assertContainsVariable(
-		t,
-		query.Get("daily"),
-		"sunrise",
-	)
-	assertContainsVariable(
-		t,
-		query.Get("daily"),
-		"uv_index_max",
-	)
+
+	if strings.Contains(
+		query.Get("hourly"),
+		"precipitation_probability",
+	) {
+		t.Error(
+			"deterministic single-run request must not include precipitation_probability",
+		)
+	}
+
+	if query.Get("daily") != "" {
+		t.Errorf(
+			"daily = %q, want empty for local-time single run",
+			query.Get("daily"),
+		)
+	}
 }
 
 func TestBuildSingleRunEndpointRejectsInvalidRequest(
