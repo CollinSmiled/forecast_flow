@@ -84,6 +84,19 @@ func TestRepositoryUpsertAndSearch(t *testing.T) {
 		)
 	}
 
+	loaded, err := repository.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get location by ID: %v", err)
+	}
+
+	if loaded.City != candidate.City {
+		t.Errorf(
+			"loaded city = %q, want %q",
+			loaded.City,
+			candidate.City,
+		)
+	}
+
 	found, err := repository.Search(
 		ctx,
 		"repository",
