@@ -2,12 +2,137 @@ package openmeteo
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/CollinSmiled/forecast_flow/internal/forecast"
+	"github.com/CollinSmiled/forecast_flow/internal/location"
 )
+
+func TestSingleRunClientFetchForecastRun(t *testing.T) {
+	payload := testHourlyPayload()
+	payload.Daily = testDailyPayload().Daily
+
+	server := httptest.NewServer(http.HandlerFunc(
+		func(response http.ResponseWriter, _ *http.Request) {
+			response.Header().Set(
+				"Content-Type",
+				"application/json",
+			)
+
+			if err := json.NewEncoder(response).Encode(payload); err != nil {
+				t.Errorf("encode response: %v", err)
+			}
+		},
+	))
+	defer server.Close()
+
+	client := newSingleRunClient(
+		server.URL,
+		server.Client(),
+	)
+
+	retrievedAt := time.Date(
+		2026,
+		time.September,
+		17,
+		10,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
+	client.now = func() time.Time {
+		return retrievedAt
+	}
+
+	selectedLocation := location.Location{
+		ID:        3,
+		City:      "Jakarta",
+		Country:   "Indonesia",
+		Latitude:  -6.21462,
+		Longitude: 106.84513,
+		Timezone:  "Asia/Jakarta",
+	}
+
+	model := forecast.Model{
+		ID:           "ecmwf_ifs",
+		Name:         "ECMWF IFS",
+		Provider:     "ECMWF",
+		ResolutionKM: 9,
+	}
+
+	runAt := time.Date(
+		2026,
+		time.September,
+		17,
+		6,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+
+	result, err := client.FetchForecastRun(
+		context.Background(),
+		selectedLocation,
+		model,
+		runAt,
+		10,
+	)
+	if err != nil {
+		t.Fatalf("fetch forecast run: %v", err)
+	}
+
+	if result.Run.LocationID != 3 {
+		t.Errorf(
+			"location ID = %d, want 3",
+			result.Run.LocationID,
+		)
+	}
+
+	if result.Run.Model.ID != "ecmwf_ifs" {
+		t.Errorf(
+			"model ID = %q, want ecmwf_ifs",
+			result.Run.Model.ID,
+		)
+	}
+
+	if !result.Run.ForecastRunAt.Equal(runAt) {
+		t.Errorf(
+			"forecast run time = %v, want %v",
+			result.Run.ForecastRunAt,
+			runAt,
+		)
+	}
+
+	if !result.Run.RetrievedAt.Equal(retrievedAt) {
+		t.Errorf(
+			"retrieval time = %v, want %v",
+			result.Run.RetrievedAt,
+			retrievedAt,
+		)
+	}
+
+	if len(result.Hourly) != 2 {
+		t.Errorf(
+			"hourly count = %d, want 2",
+			len(result.Hourly),
+		)
+	}
+
+	if len(result.Daily) != 1 {
+		t.Errorf(
+			"daily count = %d, want 1",
+			len(result.Daily),
+		)
+	}
+}
 
 func TestSingleRunClientFetch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(

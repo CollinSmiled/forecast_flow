@@ -5,11 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/CollinSmiled/forecast_flow/internal/forecast"
+	"github.com/CollinSmiled/forecast_flow/internal/location"
 )
 
 type SingleRunClient struct {
 	baseURL    string
 	httpClient *http.Client
+	now        func() time.Time
 }
 
 func NewSingleRunClient() *SingleRunClient {
@@ -28,7 +33,65 @@ func newSingleRunClient(
 	return &SingleRunClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		httpClient: httpClient,
+		now:        time.Now,
 	}
+}
+
+func (client *SingleRunClient) FetchForecastRun(
+	ctx context.Context,
+	selectedLocation location.Location,
+	model forecast.Model,
+	forecastRunAt time.Time,
+	forecastDays int,
+) (forecast.ForecastRun, error) {
+	request := SingleRunRequest{
+		Latitude:      selectedLocation.Latitude,
+		Longitude:     selectedLocation.Longitude,
+		Timezone:      selectedLocation.Timezone,
+		ModelID:       model.ID,
+		ForecastRunAt: forecastRunAt,
+		ForecastDays:  forecastDays,
+	}
+
+	payload, err := client.fetch(ctx, request)
+	if err != nil {
+		return forecast.ForecastRun{}, err
+	}
+
+	run, err := forecast.NewRun(
+		selectedLocation.ID,
+		model,
+		forecastRunAt,
+		client.now().UTC(),
+	)
+	if err != nil {
+		return forecast.ForecastRun{}, fmt.Errorf(
+			"create forecast run: %w",
+			err,
+		)
+	}
+
+	hourly, err := mapHourlyForecasts(run, payload)
+	if err != nil {
+		return forecast.ForecastRun{}, fmt.Errorf(
+			"map hourly forecasts: %w",
+			err,
+		)
+	}
+
+	daily, err := mapDailyForecasts(payload)
+	if err != nil {
+		return forecast.ForecastRun{}, fmt.Errorf(
+			"map daily forecasts: %w",
+			err,
+		)
+	}
+
+	return forecast.ForecastRun{
+		Run:    run,
+		Hourly: hourly,
+		Daily:  daily,
+	}, nil
 }
 
 func (client *SingleRunClient) fetch(

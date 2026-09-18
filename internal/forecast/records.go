@@ -97,3 +97,11 @@ func NewDailyForecast(date string) (DailyForecast, error) {
 		Date: date,
 	}, nil
 }
+
+// ForecastRun represents the complete forecast produced by one model
+// initialization for one location.
+type ForecastRun struct {
+	Run    Run
+	Hourly []HourlyForecast
+	Daily  []DailyForecast
+}
