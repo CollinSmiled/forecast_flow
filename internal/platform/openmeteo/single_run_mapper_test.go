@@ -103,6 +103,76 @@ func TestMapIsDayRejectsUnexpectedValue(t *testing.T) {
 	}
 }
 
+func TestMapDailyForecasts(t *testing.T) {
+	payload := testDailyPayload()
+
+	daily, err := mapDailyForecasts(payload)
+	if err != nil {
+		t.Fatalf("map daily forecasts: %v", err)
+	}
+
+	if len(daily) != 1 {
+		t.Fatalf(
+			"daily count = %d, want 1",
+			len(daily),
+		)
+	}
+
+	if daily[0].Date != "2026-09-17" {
+		t.Errorf(
+			"date = %q, want 2026-09-17",
+			daily[0].Date,
+		)
+	}
+
+	if daily[0].Temperature2MMax == nil ||
+		*daily[0].Temperature2MMax != 32.1 {
+		t.Errorf(
+			"maximum temperature = %v, want 32.1",
+			daily[0].Temperature2MMax,
+		)
+	}
+
+	expectedSunrise := time.Date(
+		2026,
+		time.September,
+		16,
+		22,
+		45,
+		0,
+		0,
+		time.UTC,
+	)
+
+	if daily[0].Sunrise == nil ||
+		!daily[0].Sunrise.Equal(expectedSunrise) {
+		t.Errorf(
+			"sunrise = %v, want %v",
+			daily[0].Sunrise,
+			expectedSunrise,
+		)
+	}
+}
+
+func TestMapDailyForecastsRejectsUnequalSeries(
+	t *testing.T,
+) {
+	payload := testDailyPayload()
+	payload.Daily.UVIndexMax = nil
+
+	_, err := mapDailyForecasts(payload)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+
+	if !strings.Contains(err.Error(), "uv_index_max") {
+		t.Errorf(
+			"error = %q, want uv_index_max",
+			err,
+		)
+	}
+}
+
 func testForecastRun(t *testing.T) forecast.Run {
 	t.Helper()
 
@@ -224,10 +294,70 @@ func testHourlyPayload() singleRunResponse {
 	}
 }
 
+func testDailyPayload() singleRunResponse {
+	return singleRunResponse{
+		Timezone: "Asia/Jakarta",
+		Daily: singleRunDaily{
+			Time: []string{
+				"2026-09-17",
+			},
+			WeatherCode: []*int{
+				intPointer(61),
+			},
+			Temperature2MMax: []*float64{
+				float64Pointer(32.1),
+			},
+			Temperature2MMin: []*float64{
+				float64Pointer(25.4),
+			},
+			ApparentTemperatureMax: []*float64{
+				float64Pointer(36.2),
+			},
+			ApparentTemperatureMin: []*float64{
+				float64Pointer(28.1),
+			},
+			PrecipitationSum: []*float64{
+				float64Pointer(8.4),
+			},
+			PrecipitationProbabilityMax: []*float64{
+				float64Pointer(80),
+			},
+			PrecipitationHours: []*float64{
+				float64Pointer(4),
+			},
+			WindSpeed10MMax: []*float64{
+				float64Pointer(18.2),
+			},
+			WindGusts10MMax: []*float64{
+				float64Pointer(31),
+			},
+			WindDirection10MDominant: []*float64{
+				float64Pointer(220),
+			},
+			Sunrise: []*string{
+				stringPointer("2026-09-17T05:45"),
+			},
+			Sunset: []*string{
+				stringPointer("2026-09-17T17:51"),
+			},
+			DaylightDuration: []*float64{
+				float64Pointer(43560),
+			},
+			UVIndexMax: []*float64{
+				float64Pointer(9.2),
+			},
+		},
+	}
+}
+
 func float64Pointer(value float64) *float64 {
 	return &value
 }
 
 func intPointer(value int) *int {
+	return &value
+}
+
+func stringPointer(value string) *string {
 	return &value
 }

@@ -125,8 +125,8 @@ type singleRunDaily struct {
 	WindSpeed10MMax             []*float64 `json:"wind_speed_10m_max"`
 	WindGusts10MMax             []*float64 `json:"wind_gusts_10m_max"`
 	WindDirection10MDominant    []*float64 `json:"wind_direction_10m_dominant"`
-	Sunrise                     []string   `json:"sunrise"`
-	Sunset                      []string   `json:"sunset"`
+	Sunrise                     []*string  `json:"sunrise"`
+	Sunset                      []*string  `json:"sunset"`
 	DaylightDuration            []*float64 `json:"daylight_duration"`
 	UVIndexMax                  []*float64 `json:"uv_index_max"`
 }
