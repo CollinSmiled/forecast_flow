@@ -138,17 +138,10 @@ services:
 
     entrypoint:
       - /bin/sh
-      - -c
+      - /scripts/init-topics.sh
 
-    command:
-      - >-
-        /opt/kafka/bin/kafka-topics.sh
-        --bootstrap-server kafka:19092
-        --create
-        --if-not-exists
-        --topic forecast.latest
-        --partitions 3
-        --replication-factor 1
+    volumes:
+      - ./infrastructure/kafka/init-topics.sh:/scripts/init-topics.sh:ro
 
     depends_on:
       kafka:

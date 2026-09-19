@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/event"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -71,6 +72,27 @@ func (publisher *Publisher) PublishLatestForecast(
 	return nil
 }
 
+func (publisher *Publisher) PublishForecastRun(
+	ctx context.Context,
+	forecastEvent event.ForecastRunEventV1,
+) error {
+	record, err := forecastRunRecord(forecastEvent)
+	if err != nil {
+		return err
+	}
+
+	if err := publisher.client.
+		ProduceSync(ctx, record).
+		FirstErr(); err != nil {
+		return fmt.Errorf(
+			"publish forecast run event: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
 func (publisher *Publisher) Close() {
 	publisher.client.Close()
 }
@@ -78,33 +100,64 @@ func (publisher *Publisher) Close() {
 func latestForecastRecord(
 	forecastEvent event.LatestForecastEventV1,
 ) (*kgo.Record, error) {
-	body, err := json.Marshal(forecastEvent)
+	return newEventRecord(
+		event.LatestForecastTopic,
+		forecastEvent.PartitionKey(),
+		forecastEvent.EventID,
+		forecastEvent.EventType,
+		forecastEvent.SchemaVersion,
+		forecastEvent.OccurredAt,
+		forecastEvent,
+	)
+}
+
+func forecastRunRecord(
+	forecastEvent event.ForecastRunEventV1,
+) (*kgo.Record, error) {
+	return newEventRecord(
+		event.ForecastRunTopic,
+		forecastEvent.PartitionKey(),
+		forecastEvent.EventID,
+		forecastEvent.EventType,
+		forecastEvent.SchemaVersion,
+		forecastEvent.OccurredAt,
+		forecastEvent,
+	)
+}
+
+func newEventRecord(
+	topic string,
+	partitionKey string,
+	eventID string,
+	eventType string,
+	schemaVersion int,
+	occurredAt time.Time,
+	payload any,
+) (*kgo.Record, error) {
+	body, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"encode latest forecast event: %w",
-			err,
-		)
+		return nil, fmt.Errorf("encode Kafka event: %w", err)
 	}
 
 	return &kgo.Record{
-		Topic:     event.LatestForecastTopic,
-		Key:       []byte(forecastEvent.PartitionKey()),
+		Topic:     topic,
+		Key:       []byte(partitionKey),
 		Value:     body,
-		Timestamp: forecastEvent.OccurredAt,
+		Timestamp: occurredAt,
 		Headers: []kgo.RecordHeader{
 			{
 				Key:   "event_id",
-				Value: []byte(forecastEvent.EventID),
+				Value: []byte(eventID),
 			},
 			{
 				Key:   "event_type",
-				Value: []byte(forecastEvent.EventType),
+				Value: []byte(eventType),
 			},
 			{
 				Key: "schema_version",
 				Value: []byte(
 					strconv.Itoa(
-						forecastEvent.SchemaVersion,
+						schemaVersion,
 					),
 				),
 			},
