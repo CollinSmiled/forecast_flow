@@ -169,6 +169,41 @@ func TestRepositoryReplacesOnlyWithNewerForecast(t *testing.T) {
 	if dailyCount != 1 {
 		t.Errorf("daily row count = %d, want 1", dailyCount)
 	}
+
+	latest, err := repository.GetLatest(ctx, selectedLocation.ID)
+	if err != nil {
+		t.Fatalf("get latest forecast: %v", err)
+	}
+
+	if latest.EventID != newer.EventID {
+		t.Errorf(
+			"read event ID = %q, want %q",
+			latest.EventID,
+			newer.EventID,
+		)
+	}
+
+	if latest.Location.City != selectedLocation.City {
+		t.Errorf(
+			"read city = %q, want %q",
+			latest.Location.City,
+			selectedLocation.City,
+		)
+	}
+
+	if len(latest.Snapshot.Hourly) != 1 {
+		t.Errorf(
+			"read hourly count = %d, want 1",
+			len(latest.Snapshot.Hourly),
+		)
+	}
+
+	if len(latest.Snapshot.Daily) != 1 {
+		t.Errorf(
+			"read daily count = %d, want 1",
+			len(latest.Snapshot.Daily),
+		)
+	}
 }
 
 func latestForecastEvent(

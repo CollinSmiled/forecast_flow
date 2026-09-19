@@ -21,6 +21,7 @@ type healthResponse struct {
 func NewRouter(
 	readinessChecker ReadinessChecker,
 	locationService LocationService,
+	latestForecastReader LatestForecastReader,
 ) http.Handler {
 	router := http.NewServeMux()
 
@@ -31,6 +32,7 @@ func NewRouter(
 	)
 
 	registerLocationRoutes(router, locationService)
+	registerForecastRoutes(router, latestForecastReader)
 
 	return router
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/api/httpapi"
+	"github.com/CollinSmiled/forecast_flow/internal/hotforecast"
 	"github.com/CollinSmiled/forecast_flow/internal/location"
 	"github.com/CollinSmiled/forecast_flow/internal/platform/openmeteo"
 	"github.com/CollinSmiled/forecast_flow/internal/platform/postgres"
@@ -55,6 +56,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	defer database.Close()
 
 	locationRepository := location.NewRepository(database)
+	latestForecastRepository := hotforecast.NewRepository(database)
 	geocodingClient := openmeteo.NewGeocodingClient()
 
 	allowedCountryCodes := strings.Split(
@@ -82,6 +84,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		Handler: httpapi.NewRouter(
 			database,
 			locationService,
+			latestForecastRepository,
 		),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
