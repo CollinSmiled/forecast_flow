@@ -24,6 +24,7 @@ func TestLiveness(t *testing.T) {
 	NewRouter(
 		stubReadinessChecker{},
 		&stubLocationService{},
+		&stubLatestForecastReader{},
 	).ServeHTTP(response, request)
 
 	assertHealthResponse(
@@ -68,6 +69,7 @@ func TestReadiness(t *testing.T) {
 					err: test.databaseError,
 				},
 				&stubLocationService{},
+				&stubLatestForecastReader{},
 			).ServeHTTP(response, request)
 
 			assertHealthResponse(

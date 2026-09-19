@@ -11,6 +11,8 @@ import (
 
 const maximumSearchLimit = 100
 
+var ErrLocationNotFound = errors.New("location not found")
+
 type DBTX interface {
 	Query(
 		ctx context.Context,
@@ -33,6 +35,53 @@ func NewRepository(database DBTX) *Repository {
 	return &Repository{
 		database: database,
 	}
+}
+
+func (repository *Repository) GetByID(
+	ctx context.Context,
+	locationID int64,
+) (Location, error) {
+	if locationID < 1 {
+		return Location{}, errors.New(
+			"get location: location ID must be greater than zero",
+		)
+	}
+
+	const query = `
+		SELECT
+			location_id,
+			open_meteo_location_id,
+			city,
+			country,
+			country_code,
+			latitude,
+			longitude,
+			timezone,
+			elevation,
+			population,
+			administrative_area,
+			created_at,
+			updated_at
+		FROM public.locations
+		WHERE location_id = $1
+	`
+
+	found, err := scanLocation(
+		repository.database.QueryRow(ctx, query, locationID),
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Location{}, fmt.Errorf(
+			"%w: %d",
+			ErrLocationNotFound,
+			locationID,
+		)
+	}
+
+	if err != nil {
+		return Location{}, fmt.Errorf("get location: %w", err)
+	}
+
+	return found, nil
 }
 
 func (repository *Repository) Upsert(
