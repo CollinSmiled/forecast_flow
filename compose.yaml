@@ -132,6 +132,91 @@ services:
 
     stop_grace_period: 30s
     restart: unless-stopped
+
+  kafka-init:
+    image: apache/kafka:4.3.1
+
+    entrypoint:
+      - /bin/sh
+      - -c
+
+    command:
+      - >-
+        /opt/kafka/bin/kafka-topics.sh
+        --bootstrap-server kafka:19092
+        --create
+        --if-not-exists
+        --topic forecast.latest
+        --partitions 3
+        --replication-factor 1
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  hotpath:
+    image: forecast-flow-hotpath:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: hotpath
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      KAFKA_CONSUMER_GROUP: "${KAFKA_CONSUMER_GROUP:-postgres-hot-path}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  ingester:
+    image: forecast-flow-ingester:dev
+
+    profiles:
+      - tools
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: ingester
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      LOCATION_ID: "${LOCATION_ID:-}"
+      FORECAST_DAYS: "${FORECAST_DAYS:-10}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
 volumes:
   postgres_data:
   kafka_data:
