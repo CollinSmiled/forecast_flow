@@ -32,6 +32,11 @@ class LocationSearchController extends ChangeNotifier {
 
   LocationSearchState get state => _state;
 
+  void reset({SupportedCountry? country}) {
+    _requestVersion++;
+    _emit(LocationSearchState.initial(country ?? _state.country));
+  }
+
   Future<void> search({
     required String query,
     required SupportedCountry country,
