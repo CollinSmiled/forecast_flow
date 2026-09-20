@@ -7,6 +7,7 @@ import '../core/config/app_config.dart';
 import '../core/theme/app_theme.dart';
 import '../features/location/data/location_api_client.dart';
 import '../features/location/data/models/location_result.dart';
+import '../features/location/data/selected_location_store.dart';
 import '../features/location/presentation/location_search_controller.dart';
 import '../features/location/presentation/location_search_screen.dart';
 import '../features/weather/data/forecast_api_client.dart';
@@ -14,10 +15,16 @@ import '../features/weather/presentation/weather_controller.dart';
 import '../features/weather/presentation/weather_home_screen.dart';
 
 class ForecastFlowApp extends StatefulWidget {
-  const ForecastFlowApp({this.httpClient, this.apiBaseUri, super.key});
+  const ForecastFlowApp({
+    this.httpClient,
+    this.apiBaseUri,
+    this.selectedLocationStore,
+    super.key,
+  });
 
   final http.Client? httpClient;
   final Uri? apiBaseUri;
+  final SelectedLocationStore? selectedLocationStore;
 
   @override
   State<ForecastFlowApp> createState() => _ForecastFlowAppState();
@@ -28,14 +35,20 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
   late final bool _ownsHttpClient;
   late final LocationSearchController _locationController;
   late final WeatherController _weatherController;
+  late final SelectedLocationStore _selectedLocationStore;
 
-  LocationResult? _selectedLocation;
+  Future<void> _pendingStorageWrite = Future.value();
+  int? _selectedLocationId;
+  bool _isRestoringLocation = true;
 
   @override
   void initState() {
     super.initState();
     _ownsHttpClient = widget.httpClient == null;
     _httpClient = widget.httpClient ?? http.Client();
+    _selectedLocationStore =
+        widget.selectedLocationStore ??
+        SharedPreferencesSelectedLocationStore();
     final baseUri = widget.apiBaseUri ?? AppConfig.apiBaseUri;
 
     final locationApiClient = LocationApiClient(
@@ -54,6 +67,28 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
     _weatherController = WeatherController(
       loadForecast: forecastApiClient.getLatest,
     );
+    unawaited(_restoreSelectedLocation());
+  }
+
+  Future<void> _restoreSelectedLocation() async {
+    int? locationId;
+    try {
+      locationId = await _selectedLocationStore.readLocationId();
+    } on Object {
+      // Local preferences should never prevent the app from starting.
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedLocationId = locationId;
+      _isRestoringLocation = false;
+    });
+    if (locationId != null) {
+      unawaited(_weatherController.load(locationId));
+    }
   }
 
   void _selectLocation(LocationResult location) {
@@ -62,13 +97,33 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
       return;
     }
 
-    setState(() => _selectedLocation = location);
+    setState(() => _selectedLocationId = locationId);
+    _queueStoredLocation(locationId);
     unawaited(_weatherController.load(locationId));
   }
 
   void _chooseAnotherLocation() {
     _locationController.reset();
-    setState(() => _selectedLocation = null);
+    setState(() => _selectedLocationId = null);
+    _queueStoredLocation(null);
+  }
+
+  void _queueStoredLocation(int? locationId) {
+    _pendingStorageWrite = _pendingStorageWrite.then(
+      (_) => _writeStoredLocation(locationId),
+    );
+  }
+
+  Future<void> _writeStoredLocation(int? locationId) async {
+    try {
+      if (locationId == null) {
+        await _selectedLocationStore.clearLocationId();
+      } else {
+        await _selectedLocationStore.saveLocationId(locationId);
+      }
+    } on Object {
+      // Forecast loading remains usable if device storage is unavailable.
+    }
   }
 
   @override
@@ -87,7 +142,9 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
       title: 'Forecast Flow',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: _selectedLocation == null
+      home: _isRestoringLocation
+          ? const _RestoringLocationScreen()
+          : _selectedLocationId == null
           ? LocationSearchScreen(
               controller: _locationController,
               onLocationSelected: _selectLocation,
@@ -96,6 +153,21 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
               controller: _weatherController,
               onChooseLocation: _chooseAnotherLocation,
             ),
+    );
+  }
+}
+
+class _RestoringLocationScreen extends StatelessWidget {
+  const _RestoringLocationScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(
+          key: ValueKey('restoring-selected-location'),
+        ),
+      ),
     );
   }
 }

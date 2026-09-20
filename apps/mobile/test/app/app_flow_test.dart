@@ -6,10 +6,13 @@ import 'package:forecast_flow_mobile/app/app.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import '../helpers/memory_selected_location_store.dart';
+
 void main() {
   testWidgets('selects a city and displays its live forecast response', (
     tester,
   ) async {
+    final selectedLocationStore = MemorySelectedLocationStore();
     final httpClient = MockClient((request) async {
       if (request.method == 'GET' &&
           request.url.path == '/api/v1/locations/search') {
@@ -38,8 +41,10 @@ void main() {
       ForecastFlowApp(
         httpClient: httpClient,
         apiBaseUri: Uri.parse('http://api.example.test:8080'),
+        selectedLocationStore: selectedLocationStore,
       ),
     );
+    await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'Tokyo');
     await tester.tap(find.text('Search cities'));
@@ -64,6 +69,53 @@ void main() {
     expect(find.text('18.0 km/h'), findsOneWidget);
     expect(find.text('Sun and daylight'), findsOneWidget);
     expect(find.text('1-day forecast'), findsOneWidget);
+    expect(selectedLocationStore.locationId, 4);
+    expect(selectedLocationStore.saveCount, 1);
+
+    await tester.tap(find.byKey(const ValueKey('choose-location')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Choose a city'), findsOneWidget);
+    expect(selectedLocationStore.locationId, isNull);
+    expect(selectedLocationStore.clearCount, 1);
+  });
+
+  testWidgets('restores the last selected city when the app starts', (
+    tester,
+  ) async {
+    final selectedLocationStore = MemorySelectedLocationStore(locationId: 4);
+    var forecastRequests = 0;
+    final httpClient = MockClient((request) async {
+      if (request.method == 'GET' &&
+          request.url.path == '/api/v1/locations/4/forecast') {
+        forecastRequests++;
+        return http.Response(jsonEncode(_forecastEnvelope()), 200);
+      }
+
+      return http.Response('not found', 404);
+    });
+
+    await tester.pumpWidget(
+      ForecastFlowApp(
+        httpClient: httpClient,
+        apiBaseUri: Uri.parse('http://api.example.test:8080'),
+        selectedLocationStore: selectedLocationStore,
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('restoring-selected-location')),
+      findsOneWidget,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tokyo, Japan'), findsOneWidget);
+    final currentTemperature = tester.widget<Text>(
+      find.byKey(const ValueKey('current-temperature')),
+    );
+    expect(currentTemperature.data, '24°');
+    expect(selectedLocationStore.readCount, 1);
+    expect(forecastRequests, 1);
   });
 }
 
