@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forecast_flow_mobile/app/app.dart';
+import 'package:forecast_flow_mobile/features/location/data/models/location_result.dart';
 import 'package:forecast_flow_mobile/features/weather/presentation/weather_scene_resolver.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -86,8 +87,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose a city'), findsOneWidget);
+    expect(find.text('Recent cities'), findsOneWidget);
+    expect(find.byKey(const ValueKey('recent-location-4')), findsOneWidget);
     expect(selectedLocationStore.locationId, isNull);
     expect(selectedLocationStore.clearCount, 1);
+
+    await tester.tap(find.byKey(const ValueKey('recent-location-4')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tokyo, Japan'), findsOneWidget);
+    expect(selectedLocationStore.locationId, 4);
+    expect(selectedLocationStore.recentLocations.single.city, 'Tokyo');
+    expect(selectedLocationStore.recentSaveCount, 2);
   });
 
   testWidgets('restores the last selected city when the app starts', (
@@ -126,6 +137,41 @@ void main() {
     expect(currentTemperature.data, '24°');
     expect(selectedLocationStore.readCount, 1);
     expect(forecastRequests, 1);
+  });
+
+  testWidgets('restores recent cities for quick switching after restart', (
+    tester,
+  ) async {
+    final recentTokyo = LocationResult.fromJson(_locationJson(saved: true));
+    final selectedLocationStore = MemorySelectedLocationStore(
+      recent: [recentTokyo],
+    );
+    final httpClient = MockClient((request) async {
+      if (request.method == 'GET' &&
+          request.url.path == '/api/v1/locations/4/forecast') {
+        return http.Response(jsonEncode(_forecastEnvelope()), 200);
+      }
+
+      return http.Response('not found', 404);
+    });
+
+    await tester.pumpWidget(
+      ForecastFlowApp(
+        httpClient: httpClient,
+        apiBaseUri: Uri.parse('http://api.example.test:8080'),
+        selectedLocationStore: selectedLocationStore,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recent cities'), findsOneWidget);
+    expect(find.byKey(const ValueKey('recent-location-4')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('recent-location-4')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tokyo, Japan'), findsOneWidget);
+    expect(selectedLocationStore.locationId, 4);
   });
 }
 

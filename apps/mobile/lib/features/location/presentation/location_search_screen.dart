@@ -8,11 +8,13 @@ class LocationSearchScreen extends StatefulWidget {
   const LocationSearchScreen({
     required this.controller,
     required this.onLocationSelected,
+    this.recentLocations = const [],
     super.key,
   });
 
   final LocationSearchController controller;
   final ValueChanged<LocationResult> onLocationSelected;
+  final List<LocationResult> recentLocations;
 
   @override
   State<LocationSearchScreen> createState() => _LocationSearchScreenState();
@@ -111,6 +113,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                   builder: (context, _) {
                     return _SearchBody(
                       state: widget.controller.state,
+                      recentLocations: widget.recentLocations,
                       onRetry: widget.controller.retry,
                       onSelect: _select,
                     );
@@ -128,22 +131,27 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
 class _SearchBody extends StatelessWidget {
   const _SearchBody({
     required this.state,
+    required this.recentLocations,
     required this.onRetry,
     required this.onSelect,
   });
 
   final LocationSearchState state;
+  final List<LocationResult> recentLocations;
   final VoidCallback onRetry;
   final ValueChanged<LocationResult> onSelect;
 
   @override
   Widget build(BuildContext context) {
     return switch (state.status) {
-      LocationSearchStatus.initial => const _Message(
-        icon: Icons.location_city_rounded,
-        title: 'Find your city',
-        message: 'Choose a country and search by city name.',
-      ),
+      LocationSearchStatus.initial =>
+        recentLocations.isEmpty
+            ? const _Message(
+                icon: Icons.location_city_rounded,
+                title: 'Find your city',
+                message: 'Choose a country and search by city name.',
+              )
+            : _RecentLocations(locations: recentLocations, onSelect: onSelect),
       LocationSearchStatus.searching => const Center(
         child: CircularProgressIndicator(),
       ),
@@ -161,6 +169,54 @@ class _SearchBody extends StatelessWidget {
         onSelect: onSelect,
       ),
     };
+  }
+}
+
+class _RecentLocations extends StatelessWidget {
+  const _RecentLocations({required this.locations, required this.onSelect});
+
+  final List<LocationResult> locations;
+  final ValueChanged<LocationResult> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      itemCount: locations.length + 1,
+      separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 4 : 8),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recent cities',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap a city to load its latest forecast.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final location = locations[index - 1];
+        return Card(
+          child: ListTile(
+            key: ValueKey('recent-location-${location.locationId}'),
+            leading: const CircleAvatar(child: Icon(Icons.history_rounded)),
+            title: Text(location.city),
+            subtitle: Text(_locationSubtitle(location)),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => onSelect(location),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -222,15 +278,15 @@ class _Results extends StatelessWidget {
       ],
     );
   }
+}
 
-  String _locationSubtitle(LocationResult location) {
-    final area = location.administrativeArea;
-    if (area == null || area.isEmpty || area == location.city) {
-      return location.country;
-    }
-
-    return '$area, ${location.country}';
+String _locationSubtitle(LocationResult location) {
+  final area = location.administrativeArea;
+  if (area == null || area.isEmpty || area == location.city) {
+    return location.country;
   }
+
+  return '$area, ${location.country}';
 }
 
 class _Failure extends StatelessWidget {

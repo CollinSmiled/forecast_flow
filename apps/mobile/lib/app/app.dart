@@ -39,6 +39,7 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
 
   Future<void> _pendingStorageWrite = Future.value();
   int? _selectedLocationId;
+  List<LocationResult> _recentLocations = const [];
   bool _isRestoringLocation = true;
 
   @override
@@ -72,10 +73,16 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
 
   Future<void> _restoreSelectedLocation() async {
     int? locationId;
+    List<LocationResult> recentLocations = const [];
     try {
       locationId = await _selectedLocationStore.readLocationId();
     } on Object {
       // Local preferences should never prevent the app from starting.
+    }
+    try {
+      recentLocations = await _selectedLocationStore.readRecentLocations();
+    } on Object {
+      // A corrupt recent list should not affect the selected city.
     }
 
     if (!mounted) {
@@ -84,6 +91,7 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
 
     setState(() {
       _selectedLocationId = locationId;
+      _recentLocations = recentLocations;
       _isRestoringLocation = false;
     });
     if (locationId != null) {
@@ -97,8 +105,14 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
       return;
     }
 
-    setState(() => _selectedLocationId = locationId);
-    _queueStoredLocation(locationId);
+    setState(() {
+      _selectedLocationId = locationId;
+      _recentLocations = [
+        location,
+        ..._recentLocations.where((item) => item.locationId != locationId),
+      ].take(5).toList(growable: false);
+    });
+    _queueStoredLocation(location);
     unawaited(_weatherController.load(locationId));
   }
 
@@ -108,18 +122,20 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
     _queueStoredLocation(null);
   }
 
-  void _queueStoredLocation(int? locationId) {
+  void _queueStoredLocation(LocationResult? location) {
     _pendingStorageWrite = _pendingStorageWrite.then(
-      (_) => _writeStoredLocation(locationId),
+      (_) => _writeStoredLocation(location),
     );
   }
 
-  Future<void> _writeStoredLocation(int? locationId) async {
+  Future<void> _writeStoredLocation(LocationResult? location) async {
     try {
-      if (locationId == null) {
+      final locationId = location?.locationId;
+      if (location == null || locationId == null) {
         await _selectedLocationStore.clearLocationId();
       } else {
         await _selectedLocationStore.saveLocationId(locationId);
+        await _selectedLocationStore.saveRecentLocation(location);
       }
     } on Object {
       // Forecast loading remains usable if device storage is unavailable.
@@ -147,6 +163,7 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
           : _selectedLocationId == null
           ? LocationSearchScreen(
               controller: _locationController,
+              recentLocations: _recentLocations,
               onLocationSelected: _selectLocation,
             )
           : WeatherHomeScreen(

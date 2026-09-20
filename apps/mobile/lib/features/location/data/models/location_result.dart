@@ -42,6 +42,22 @@ class LocationResult {
       administrativeArea: _optionalString(json, 'administrative_area'),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (locationId != null) 'location_id': locationId,
+      'open_meteo_location_id': openMeteoLocationId,
+      'city': city,
+      'country': country,
+      'country_code': countryCode,
+      'latitude': latitude,
+      'longitude': longitude,
+      'timezone': timezone,
+      'elevation': elevation,
+      'population': population,
+      'administrative_area': administrativeArea,
+    };
+  }
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {
