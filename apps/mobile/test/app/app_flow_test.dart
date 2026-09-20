@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forecast_flow_mobile/app/app.dart';
+import 'package:forecast_flow_mobile/features/weather/presentation/weather_scene_resolver.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -53,6 +54,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tokyo, Japan'), findsOneWidget);
+    final scene = tester.widget<Image>(
+      find.byKey(const ValueKey('weather-scene-background')),
+    );
+    expect(
+      (scene.image as AssetImage).assetName,
+      WeatherSceneResolver.dayAsset,
+    );
     final currentTemperature = tester.widget<Text>(
       find.byKey(const ValueKey('current-temperature')),
     );

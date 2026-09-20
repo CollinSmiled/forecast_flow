@@ -10,6 +10,7 @@ import 'sun_cycle_section.dart';
 import 'weather_asset_resolver.dart';
 import 'weather_controller.dart';
 import 'weather_details_section.dart';
+import 'weather_scene_resolver.dart';
 
 class WeatherHomeScreen extends StatelessWidget {
   const WeatherHomeScreen({
@@ -24,43 +25,72 @@ class WeatherHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.skyTop, AppColors.skyBottom],
-          ),
-        ),
-        child: SafeArea(
-          child: ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) {
-              return switch (controller.state) {
-                WeatherInitial() || WeatherLoading() => _WeatherLoading(
-                  onChooseLocation: onChooseLocation,
-                ),
-                WeatherLoaded(:final forecast) => _WeatherContent(
-                  forecast: forecast,
-                  onChooseLocation: onChooseLocation,
-                ),
-                WeatherNotFound(:final message) => _WeatherProblem(
-                  title: 'Forecast unavailable',
-                  message: message,
-                  onRetry: controller.retry,
-                  onChooseLocation: onChooseLocation,
-                ),
-                WeatherFailure(:final message, :final canRetry) =>
-                  _WeatherProblem(
-                    title: 'Could not load weather',
-                    message: message,
-                    onRetry: canRetry ? controller.retry : null,
-                    onChooseLocation: onChooseLocation,
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          final state = controller.state;
+          final sceneAsset = switch (state) {
+            WeatherLoaded(:final forecast) => WeatherSceneResolver.resolve(
+              isDay: forecast.current.weather.isDay ?? true,
+            ),
+            _ => null,
+          };
+
+          return DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.skyTop, AppColors.skyBottom],
+              ),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (sceneAsset != null)
+                  Image.asset(
+                    sceneAsset,
+                    key: const ValueKey('weather-scene-background'),
+                    fit: BoxFit.cover,
                   ),
-              };
-            },
-          ),
-        ),
+                if (sceneAsset != null)
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0x2605182B), Color(0x5205182B)],
+                      ),
+                    ),
+                  ),
+                SafeArea(
+                  child: switch (state) {
+                    WeatherInitial() || WeatherLoading() => _WeatherLoading(
+                      onChooseLocation: onChooseLocation,
+                    ),
+                    WeatherLoaded(:final forecast) => _WeatherContent(
+                      forecast: forecast,
+                      onChooseLocation: onChooseLocation,
+                    ),
+                    WeatherNotFound(:final message) => _WeatherProblem(
+                      title: 'Forecast unavailable',
+                      message: message,
+                      onRetry: controller.retry,
+                      onChooseLocation: onChooseLocation,
+                    ),
+                    WeatherFailure(:final message, :final canRetry) =>
+                      _WeatherProblem(
+                        title: 'Could not load weather',
+                        message: message,
+                        onRetry: canRetry ? controller.retry : null,
+                        onChooseLocation: onChooseLocation,
+                      ),
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
