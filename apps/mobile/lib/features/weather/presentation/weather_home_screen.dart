@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../domain/weather_condition.dart';
+import 'weather_asset_resolver.dart';
 
 class WeatherHomeScreen extends StatelessWidget {
   const WeatherHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final condition = weatherConditionFromWmoCode(2);
+
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -39,17 +43,18 @@ class WeatherHomeScreen extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                const Icon(
-                  Icons.wb_sunny_rounded,
-                  color: Color(0xFFFFC64B),
-                  size: 72,
+                Image.asset(
+                  WeatherAssetResolver.resolve(condition, isDay: true),
+                  width: 96,
+                  height: 96,
+                  semanticLabel: condition.label,
                 ),
                 const SizedBox(height: 20),
                 Text('31°', style: Theme.of(context).textTheme.displayLarge),
                 const SizedBox(height: 8),
-                const Text(
-                  'Partly cloudy',
-                  style: TextStyle(
+                Text(
+                  condition.label,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
