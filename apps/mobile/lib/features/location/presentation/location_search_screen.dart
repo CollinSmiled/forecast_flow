@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../weather/presentation/weather_scene_resolver.dart';
 import '../data/models/location_result.dart';
 import '../domain/supported_country.dart';
 import 'location_search_controller.dart';
@@ -9,12 +11,14 @@ class LocationSearchScreen extends StatefulWidget {
     required this.controller,
     required this.onLocationSelected,
     this.recentLocations = const [],
+    this.backgroundAsset = WeatherSceneResolver.dayAsset,
     super.key,
   });
 
   final LocationSearchController controller;
   final ValueChanged<LocationResult> onLocationSelected;
   final List<LocationResult> recentLocations;
+  final String backgroundAsset;
 
   @override
   State<LocationSearchScreen> createState() => _LocationSearchScreenState();
@@ -57,71 +61,195 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Choose a city')),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: Column(
-            children: [
-              DropdownButtonFormField<SupportedCountry>(
-                value: _country,
-                decoration: const InputDecoration(
-                  labelText: 'Country',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.public_rounded),
-                ),
-                items: SupportedCountry.values
-                    .map(
-                      (country) => DropdownMenuItem(
-                        value: country,
-                        child: Text(country.displayName),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (country) {
-                  if (country != null) {
-                    setState(() => _country = country);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _queryController,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _search(),
-                decoration: InputDecoration(
-                  labelText: 'City',
-                  hintText: 'e.g. Jakarta',
-                  errorText: _queryError,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.search_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _search,
-                  icon: const Icon(Icons.search_rounded),
-                  label: const Text('Search cities'),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: widget.controller,
-                  builder: (context, _) {
-                    return _SearchBody(
-                      state: widget.controller.state,
-                      recentLocations: widget.recentLocations,
-                      onRetry: widget.controller.retry,
-                      onSelect: _select,
-                    );
-                  },
-                ),
-              ),
-            ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            widget.backgroundAsset,
+            key: const ValueKey('location-scene-background'),
+            fit: BoxFit.cover,
           ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x3D05182B), Color(0x7505182B)],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Choose a city',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(left: 40, top: 2),
+                    child: Text(
+                      'Find the forecast that matters to you.',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    key: const ValueKey('location-search-form'),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x2605182B),
+                          blurRadius: 24,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        DropdownButtonFormField<SupportedCountry>(
+                          value: _country,
+                          decoration: _fieldDecoration(
+                            label: 'Country',
+                            icon: Icons.public_rounded,
+                          ),
+                          items: SupportedCountry.values
+                              .map(
+                                (country) => DropdownMenuItem(
+                                  value: country,
+                                  child: Text(country.displayName),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (country) {
+                            if (country != null) {
+                              setState(() => _country = country);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _queryController,
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (_) => _search(),
+                          decoration: _fieldDecoration(
+                            label: 'City',
+                            icon: Icons.search_rounded,
+                            hint: 'e.g. Jakarta',
+                            errorText: _queryError,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: FilledButton.icon(
+                            onPressed: _search,
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                            icon: const Icon(Icons.search_rounded),
+                            label: const Text('Search cities'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Container(
+                      key: const ValueKey('location-results-panel'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x2605182B),
+                            blurRadius: 24,
+                            offset: Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: ListenableBuilder(
+                        listenable: widget.controller,
+                        builder: (context, _) {
+                          return _SearchBody(
+                            state: widget.controller.state,
+                            recentLocations: widget.recentLocations,
+                            onRetry: widget.controller.retry,
+                            onSelect: _select,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String label,
+    required IconData icon,
+    String? hint,
+    String? errorText,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      errorText: errorText,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.78),
+      prefixIcon: Icon(icon),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0x1A17253D)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.error,
+          width: 1.5,
         ),
       ),
     );
@@ -206,6 +334,11 @@ class _RecentLocations extends StatelessWidget {
 
         final location = locations[index - 1];
         return Card(
+          elevation: 0,
+          color: Colors.white.withValues(alpha: 0.76),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: ListTile(
             key: ValueKey('recent-location-${location.locationId}'),
             leading: const CircleAvatar(child: Icon(Icons.history_rounded)),
@@ -256,6 +389,11 @@ class _Results extends StatelessWidget {
                   location.openMeteoLocationId;
 
               return Card(
+                elevation: 0,
+                color: Colors.white.withValues(alpha: 0.76),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
                 child: ListTile(
                   key: ValueKey('location-${location.openMeteoLocationId}'),
                   leading: const CircleAvatar(

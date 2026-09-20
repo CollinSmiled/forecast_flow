@@ -26,6 +26,15 @@ void main() {
       ),
     );
 
+    expect(
+      find.byKey(const ValueKey('location-scene-background')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('location-search-form')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('location-results-panel')),
+      findsOneWidget,
+    );
     expect(find.text('Find your city'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Tokyo');
     await tester.tap(find.text('Search cities'));

@@ -60,7 +60,7 @@ void main() {
     );
     expect(
       (scene.image as AssetImage).assetName,
-      WeatherSceneResolver.dayAsset,
+      isIn([WeatherSceneResolver.dayAsset, WeatherSceneResolver.nightAsset]),
     );
     final currentTemperature = tester.widget<Text>(
       find.byKey(const ValueKey('current-temperature')),
@@ -87,6 +87,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose a city'), findsOneWidget);
+    final searchScene = tester.widget<Image>(
+      find.byKey(const ValueKey('location-scene-background')),
+    );
+    expect(
+      (searchScene.image as AssetImage).assetName,
+      (scene.image as AssetImage).assetName,
+    );
     expect(find.text('Recent cities'), findsOneWidget);
     expect(find.byKey(const ValueKey('recent-location-4')), findsOneWidget);
     expect(selectedLocationStore.locationId, isNull);

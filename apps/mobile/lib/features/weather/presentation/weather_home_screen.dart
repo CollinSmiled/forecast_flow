@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/time/app_time.dart';
@@ -10,10 +12,11 @@ import 'hourly_forecast_section.dart';
 import 'sun_cycle_section.dart';
 import 'weather_asset_resolver.dart';
 import 'weather_controller.dart';
+import 'weather_daylight_resolver.dart';
 import 'weather_details_section.dart';
 import 'weather_scene_resolver.dart';
 
-class WeatherHomeScreen extends StatelessWidget {
+class WeatherHomeScreen extends StatefulWidget {
   const WeatherHomeScreen({
     required this.controller,
     required this.onChooseLocation,
@@ -24,15 +27,48 @@ class WeatherHomeScreen extends StatelessWidget {
   final VoidCallback onChooseLocation;
 
   @override
+  State<WeatherHomeScreen> createState() => _WeatherHomeScreenState();
+}
+
+class _WeatherHomeScreenState extends State<WeatherHomeScreen>
+    with WidgetsBindingObserver {
+  Timer? _sceneClock;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _sceneClock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sceneClock?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: ListenableBuilder(
-        listenable: controller,
+        listenable: widget.controller,
         builder: (context, _) {
-          final state = controller.state;
+          final state = widget.controller.state;
           final sceneAsset = switch (state) {
             WeatherLoaded(:final forecast) => WeatherSceneResolver.resolve(
-              isDay: forecast.current.weather.isDay ?? true,
+              isDay: WeatherDaylightResolver.resolve(forecast),
             ),
             _ => null,
           };
@@ -67,7 +103,7 @@ class WeatherHomeScreen extends StatelessWidget {
                 SafeArea(
                   child: switch (state) {
                     WeatherInitial() || WeatherLoading() => _WeatherLoading(
-                      onChooseLocation: onChooseLocation,
+                      onChooseLocation: widget.onChooseLocation,
                     ),
                     WeatherLoaded(
                       :final forecast,
@@ -76,21 +112,21 @@ class WeatherHomeScreen extends StatelessWidget {
                       _WeatherContent(
                         forecast: forecast,
                         refreshErrorMessage: refreshErrorMessage,
-                        onRefresh: controller.refresh,
-                        onChooseLocation: onChooseLocation,
+                        onRefresh: widget.controller.refresh,
+                        onChooseLocation: widget.onChooseLocation,
                       ),
                     WeatherNotFound(:final message) => _WeatherProblem(
                       title: 'Forecast unavailable',
                       message: message,
-                      onRetry: controller.retry,
-                      onChooseLocation: onChooseLocation,
+                      onRetry: widget.controller.retry,
+                      onChooseLocation: widget.onChooseLocation,
                     ),
                     WeatherFailure(:final message, :final canRetry) =>
                       _WeatherProblem(
                         title: 'Could not load weather',
                         message: message,
-                        onRetry: canRetry ? controller.retry : null,
-                        onChooseLocation: onChooseLocation,
+                        onRetry: canRetry ? widget.controller.retry : null,
+                        onChooseLocation: widget.onChooseLocation,
                       ),
                   },
                 ),
@@ -121,7 +157,7 @@ class _WeatherContent extends StatelessWidget {
     final weather = forecast.current.weather;
     final conditions = CurrentConditionsViewData.fromForecast(forecast);
     final condition = weatherConditionFromWmoCode(weather.weatherCode ?? -1);
-    final isDay = weather.isDay ?? true;
+    final isDay = WeatherDaylightResolver.resolve(forecast);
     final today = forecast.daily.isEmpty ? null : forecast.daily.first;
     final hasSunData =
         today != null &&
