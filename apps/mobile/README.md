@@ -1,16 +1,110 @@
-# forecast_flow_mobile
+# Forecast Flow Mobile
 
-A new Flutter project.
+Flutter client for Forecast Flow. The app lets users search supported Asian
+cities, view current, hourly, and daily forecasts, switch between recent
+cities, and refresh the latest operational forecast.
 
-## Getting Started
+## Prerequisites
 
-This project is a starting point for a Flutter application.
+- Flutter and the Android SDK
+- An Android emulator or device
+- The Forecast Flow API and its PostgreSQL/Kafka hot path
 
-A few resources to get you started if this is your first Flutter project:
+Run Flutter commands from `apps/mobile` unless a command says otherwise.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Start the backend
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+From the repository root:
+
+```powershell
+docker compose up -d postgres kafka
+docker compose --profile tools run --rm migrate
+docker compose up -d --build api hotpath
+```
+
+Check the API before opening the app:
+
+```powershell
+Invoke-RestMethod http://localhost:8080/health/live
+Invoke-RestMethod http://localhost:8080/health/ready
+```
+
+The app reads forecasts already published by the ingester and consumed into
+PostgreSQL. A newly added city can temporarily show `Forecast unavailable`
+until its first forecast has passed through that pipeline.
+
+To ingest a known PostgreSQL `location_id` from the repository root:
+
+```powershell
+$env:LOCATION_ID = '4'
+docker compose --profile tools run --rm ingester
+Remove-Item Env:LOCATION_ID
+```
+
+## Run on the Android emulator
+
+Install dependencies once:
+
+```powershell
+flutter pub get
+```
+
+List available devices and run the app:
+
+```powershell
+flutter devices
+flutter run -d emulator-5554 --dart-define=API_BASE_URL=http://10.0.2.2:8080
+```
+
+`10.0.2.2` is the Android emulator's route to `localhost` on the Windows host.
+Do not use it on a physical phone; use the computer's reachable LAN address
+instead.
+
+While `flutter run` is active:
+
+- Press `r` for hot reload.
+- Press `R` for hot restart.
+- Press `q` to stop the app.
+
+After adding assets or changing `pubspec.yaml`, stop and rerun the app so the
+asset bundle is rebuilt.
+
+## Validate changes
+
+The repository keeps Flutter temporary output on the `D:` drive:
+
+```powershell
+$env:TEMP = 'D:\Personal\forecast_flow\.tmp\flutter-test-temp'
+$env:TMP = $env:TEMP
+flutter analyze --no-pub
+flutter test --no-pub
+```
+
+Build a debug APK with the emulator API address:
+
+```powershell
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8080
+```
+
+The APK is written to:
+
+```text
+build/app/outputs/flutter-apk/app-debug.apk
+```
+
+## Troubleshooting
+
+### Location request timed out
+
+Confirm both health endpoints work from Windows. If they do but the location
+endpoint hangs, restart Docker Desktop and check `docker compose logs api`.
+
+### Forecast unavailable
+
+The city exists in PostgreSQL but does not have a consumed operational
+forecast yet. Run the ingester for that `location_id`, then refresh the app.
+
+### UI changes do not appear
+
+Use hot restart (`R`). For newly added images, fonts, plugins, or other
+`pubspec.yaml` changes, stop and rerun `flutter run`.
