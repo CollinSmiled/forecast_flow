@@ -138,17 +138,10 @@ services:
 
     entrypoint:
       - /bin/sh
-      - -c
+      - /scripts/init-topics.sh
 
-    command:
-      - >-
-        /opt/kafka/bin/kafka-topics.sh
-        --bootstrap-server kafka:19092
-        --create
-        --if-not-exists
-        --topic forecast.latest
-        --partitions 3
-        --replication-factor 1
+    volumes:
+      - ./infrastructure/kafka/init-topics.sh:/scripts/init-topics.sh:ro
 
     depends_on:
       kafka:
@@ -201,6 +194,39 @@ services:
       DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
       KAFKA_BROKERS: "kafka:19092"
       LOCATION_ID: "${LOCATION_ID:-}"
+      FORECAST_DAYS: "${FORECAST_DAYS:-10}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  run-ingester:
+    image: forecast-flow-run-ingester:dev
+
+    profiles:
+      - tools
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: runingester
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      LOCATION_ID: "${LOCATION_ID:-}"
+      FORECAST_RUN_AT: "${FORECAST_RUN_AT:-}"
       FORECAST_DAYS: "${FORECAST_DAYS:-10}"
 
     read_only: true

@@ -93,6 +93,81 @@ func TestLatestForecastRecord(t *testing.T) {
 	}
 }
 
+func TestForecastRunRecord(t *testing.T) {
+	occurredAt := time.Date(
+		2026,
+		time.September,
+		19,
+		1,
+		0,
+		0,
+		0,
+		time.UTC,
+	)
+	forecastEvent := event.ForecastRunEventV1{
+		EventID:       "run-event-123",
+		EventType:     event.ForecastRunEventType,
+		SchemaVersion: event.ForecastRunSchemaVersion,
+		OccurredAt:    occurredAt,
+		Data: event.ForecastRunDataV1{
+			LocationID: 3,
+			Model: event.ForecastModelV1{
+				ModelID: "ecmwf_ifs",
+			},
+		},
+	}
+
+	record, err := forecastRunRecord(forecastEvent)
+	if err != nil {
+		t.Fatalf("build Kafka record: %v", err)
+	}
+
+	if record.Topic != event.ForecastRunTopic {
+		t.Errorf(
+			"topic = %q, want %q",
+			record.Topic,
+			event.ForecastRunTopic,
+		)
+	}
+
+	if string(record.Key) != "3:ecmwf_ifs" {
+		t.Errorf(
+			"key = %q, want 3:ecmwf_ifs",
+			string(record.Key),
+		)
+	}
+
+	if !record.Timestamp.Equal(occurredAt) {
+		t.Errorf(
+			"timestamp = %v, want %v",
+			record.Timestamp,
+			occurredAt,
+		)
+	}
+
+	var decoded event.ForecastRunEventV1
+	if err := json.Unmarshal(record.Value, &decoded); err != nil {
+		t.Fatalf("decode Kafka record value: %v", err)
+	}
+
+	if decoded.EventID != forecastEvent.EventID {
+		t.Errorf(
+			"event ID = %q, want %q",
+			decoded.EventID,
+			forecastEvent.EventID,
+		)
+	}
+
+	headers := recordHeaders(record.Headers)
+	if headers["event_type"] != event.ForecastRunEventType {
+		t.Errorf(
+			"event_type header = %q, want %q",
+			headers["event_type"],
+			event.ForecastRunEventType,
+		)
+	}
+}
+
 func TestNormalizeBrokers(t *testing.T) {
 	brokers := normalizeBrokers([]string{
 		" localhost:9092 ",
