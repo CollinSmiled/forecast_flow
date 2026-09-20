@@ -57,6 +57,12 @@ void main() {
     expect(find.text('8.5 km/h'), findsOneWidget);
     expect(find.text('Hourly forecast'), findsOneWidget);
     expect(find.text('10 AM'), findsOneWidget);
+    expect(find.text('Weather details'), findsOneWidget);
+    expect(find.text('25%'), findsOneWidget);
+    expect(find.text('1012 hPa'), findsOneWidget);
+    expect(find.text('10 km'), findsOneWidget);
+    expect(find.text('18.0 km/h'), findsOneWidget);
+    expect(find.text('Sun and daylight'), findsOneWidget);
     expect(find.text('1-day forecast'), findsOneWidget);
   });
 }
@@ -98,10 +104,11 @@ Map<String, dynamic> _forecastEnvelope() {
         'temperature_2m': 24.2,
         'apparent_temperature': 25.1,
         'relative_humidity_2m': 60,
-        'precipitation_probability': 10,
         'weather_code': 0,
+        'cloud_cover': 25,
+        'pressure_msl': 1012,
         'wind_speed_10m': 8.5,
-        'uv_index': 4.1,
+        'wind_gusts_10m': 18,
         'is_day': true,
       },
       'hourly': [
@@ -110,6 +117,8 @@ Map<String, dynamic> _forecastEnvelope() {
           'temperature_2m': 24.2,
           'precipitation_probability': 10,
           'weather_code': 0,
+          'visibility': 10000,
+          'uv_index': 4.1,
           'is_day': true,
         },
       ],
@@ -120,6 +129,9 @@ Map<String, dynamic> _forecastEnvelope() {
           'temperature_2m_max': 27,
           'temperature_2m_min': 20,
           'precipitation_probability_max': 10,
+          'sunrise': '2026-09-19T20:28:00Z',
+          'sunset': '2026-09-20T08:40:00Z',
+          'daylight_duration_seconds': 43920,
         },
       ],
     },

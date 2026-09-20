@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/latest_forecast.dart';
 import '../domain/weather_condition.dart';
+import 'current_conditions_view_data.dart';
 import 'daily_forecast_section.dart';
 import 'hourly_forecast_section.dart';
+import 'sun_cycle_section.dart';
 import 'weather_asset_resolver.dart';
 import 'weather_controller.dart';
+import 'weather_details_section.dart';
 
 class WeatherHomeScreen extends StatelessWidget {
   const WeatherHomeScreen({
@@ -75,8 +78,15 @@ class _WeatherContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final weather = forecast.current.weather;
+    final conditions = CurrentConditionsViewData.fromForecast(forecast);
     final condition = weatherConditionFromWmoCode(weather.weatherCode ?? -1);
     final isDay = weather.isDay ?? true;
+    final today = forecast.daily.isEmpty ? null : forecast.daily.first;
+    final hasSunData =
+        today != null &&
+        (today.sunrise != null ||
+            today.sunset != null ||
+            today.daylightDurationSeconds != null);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
@@ -168,7 +178,7 @@ class _WeatherContent extends StatelessWidget {
                         icon: Icons.umbrella_outlined,
                         label: 'Rain chance',
                         value: _wholeNumber(
-                          weather.precipitationProbability,
+                          conditions.precipitationProbability,
                           suffix: '%',
                         ),
                       ),
@@ -177,7 +187,7 @@ class _WeatherContent extends StatelessWidget {
                       child: _Metric(
                         icon: Icons.wb_sunny_outlined,
                         label: 'UV index',
-                        value: _decimal(weather.uvIndex),
+                        value: _decimal(conditions.uvIndex),
                       ),
                     ),
                   ],
@@ -192,6 +202,12 @@ class _WeatherContent extends StatelessWidget {
               currentValidAt: forecast.current.validAt,
               timezone: forecast.timezone,
             ),
+          ],
+          const SizedBox(height: 20),
+          WeatherDetailsSection(conditions: conditions, units: forecast.units),
+          if (hasSunData) ...[
+            const SizedBox(height: 20),
+            SunCycleSection(forecast: today, timezone: forecast.timezone),
           ],
           if (forecast.daily.isNotEmpty) ...[
             const SizedBox(height: 20),
