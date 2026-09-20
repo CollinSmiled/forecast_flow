@@ -48,10 +48,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Tokyo, Japan'), findsOneWidget);
-    expect(find.text('24°'), findsOneWidget);
+    final currentTemperature = tester.widget<Text>(
+      find.byKey(const ValueKey('current-temperature')),
+    );
+    expect(currentTemperature.data, '24°');
     expect(find.text('Clear sky'), findsOneWidget);
     expect(find.text('60%'), findsOneWidget);
     expect(find.text('8.5 km/h'), findsOneWidget);
+    expect(find.text('Hourly forecast'), findsOneWidget);
+    expect(find.text('10 AM'), findsOneWidget);
     expect(find.text('1-day forecast'), findsOneWidget);
   });
 }
@@ -99,7 +104,15 @@ Map<String, dynamic> _forecastEnvelope() {
         'uv_index': 4.1,
         'is_day': true,
       },
-      'hourly': <Map<String, dynamic>>[],
+      'hourly': [
+        {
+          'valid_at': '2026-09-20T01:00:00Z',
+          'temperature_2m': 24.2,
+          'precipitation_probability': 10,
+          'weather_code': 0,
+          'is_day': true,
+        },
+      ],
       'daily': [
         {
           'date': '2026-09-20',
