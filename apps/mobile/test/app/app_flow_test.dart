@@ -52,6 +52,7 @@ void main() {
     expect(find.text('Clear sky'), findsOneWidget);
     expect(find.text('60%'), findsOneWidget);
     expect(find.text('8.5 km/h'), findsOneWidget);
+    expect(find.text('1-day forecast'), findsOneWidget);
   });
 }
 
@@ -99,7 +100,15 @@ Map<String, dynamic> _forecastEnvelope() {
         'is_day': true,
       },
       'hourly': <Map<String, dynamic>>[],
-      'daily': <Map<String, dynamic>>[],
+      'daily': [
+        {
+          'date': '2026-09-20',
+          'weather_code': 0,
+          'temperature_2m_max': 27,
+          'temperature_2m_min': 20,
+          'precipitation_probability_max': 10,
+        },
+      ],
     },
   };
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/latest_forecast.dart';
 import '../domain/weather_condition.dart';
+import 'daily_forecast_section.dart';
 import 'weather_asset_resolver.dart';
 import 'weather_controller.dart';
 
@@ -182,6 +183,10 @@ class _WeatherContent extends StatelessWidget {
               ],
             ),
           ),
+          if (forecast.daily.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            DailyForecastSection(forecasts: forecast.daily),
+          ],
         ],
       ),
     );
