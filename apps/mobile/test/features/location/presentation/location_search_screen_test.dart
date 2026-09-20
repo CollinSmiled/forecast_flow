@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forecast_flow_mobile/features/location/data/models/location_result.dart';
+import 'package:forecast_flow_mobile/features/location/domain/supported_country.dart';
 import 'package:forecast_flow_mobile/features/location/presentation/location_search_controller.dart';
 import 'package:forecast_flow_mobile/features/location/presentation/location_search_screen.dart';
+import 'package:forecast_flow_mobile/features/weather/presentation/weather_scene_resolver.dart';
 
 void main() {
   testWidgets('searches for and selects a city', (tester) async {
@@ -12,6 +14,7 @@ void main() {
     final controller = LocationSearchController(
       searchAvailable: ({required query, required country, limit = 10}) async {
         expect(query, 'Tokyo');
+        expect(country, SupportedCountry.malaysia);
         return [candidate];
       },
       saveLocation: (_) async => saved,
@@ -21,6 +24,7 @@ void main() {
       MaterialApp(
         home: LocationSearchScreen(
           controller: controller,
+          backgroundAssetResolver: () => WeatherSceneResolver.eveningAsset,
           onLocationSelected: (location) => selected = location,
         ),
       ),
@@ -35,7 +39,23 @@ void main() {
       find.byKey(const ValueKey('location-results-panel')),
       findsOneWidget,
     );
+    final scene = tester.widget<Image>(
+      find.byKey(const ValueKey('location-scene-background')),
+    );
+    expect(
+      (scene.image as AssetImage).assetName,
+      WeatherSceneResolver.eveningAsset,
+    );
+    expect(find.text('Find the forecast that matters to you.'), findsNothing);
     expect(find.text('Find your city'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('country-selector')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('country-picker-sheet')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('country-option-MY')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Malaysia'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Tokyo');
     await tester.tap(find.text('Search cities'));
     await tester.pumpAndSettle();
@@ -73,6 +93,31 @@ void main() {
 
     expect(find.text('Enter a city name'), findsOneWidget);
     expect(searched, isFalse);
+  });
+
+  testWidgets('styles recent cities with the weather screen typography', (
+    tester,
+  ) async {
+    final controller = LocationSearchController(
+      searchAvailable: ({required query, required country, limit = 10}) async =>
+          [],
+      saveLocation: (_) async => _location(locationId: 4),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSearchScreen(
+          controller: controller,
+          recentLocations: [_location(locationId: 4)],
+          onLocationSelected: (_) {},
+        ),
+      ),
+    );
+
+    final heading = tester.widget<Text>(find.text('Recent cities'));
+    expect(heading.style?.fontSize, 18);
+    expect(heading.style?.fontWeight, FontWeight.w700);
+    expect(find.byKey(const ValueKey('recent-location-4')), findsOneWidget);
   });
 }
 

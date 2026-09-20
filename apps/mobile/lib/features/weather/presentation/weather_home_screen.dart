@@ -67,9 +67,8 @@ class _WeatherHomeScreenState extends State<WeatherHomeScreen>
         builder: (context, _) {
           final state = widget.controller.state;
           final sceneAsset = switch (state) {
-            WeatherLoaded(:final forecast) => WeatherSceneResolver.resolve(
-              isDay: WeatherDaylightResolver.resolve(forecast),
-            ),
+            WeatherLoaded(:final forecast) =>
+              WeatherSceneResolver.resolveForForecast(forecast),
             _ => null,
           };
 

@@ -12,7 +12,6 @@ import '../features/location/presentation/location_search_controller.dart';
 import '../features/location/presentation/location_search_screen.dart';
 import '../features/weather/data/forecast_api_client.dart';
 import '../features/weather/presentation/weather_controller.dart';
-import '../features/weather/presentation/weather_daylight_resolver.dart';
 import '../features/weather/presentation/weather_home_screen.dart';
 import '../features/weather/presentation/weather_scene_resolver.dart';
 
@@ -166,7 +165,7 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
           ? LocationSearchScreen(
               controller: _locationController,
               recentLocations: _recentLocations,
-              backgroundAsset: _locationSearchBackgroundAsset(),
+              backgroundAssetResolver: _locationSearchBackgroundAsset,
               onLocationSelected: _selectLocation,
             )
           : WeatherHomeScreen(
@@ -179,12 +178,10 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
   String _locationSearchBackgroundAsset() {
     final state = _weatherController.state;
     if (state case WeatherLoaded(:final forecast)) {
-      return WeatherSceneResolver.resolve(
-        isDay: WeatherDaylightResolver.resolve(forecast),
-      );
+      return WeatherSceneResolver.resolveForForecast(forecast);
     }
 
-    return WeatherSceneResolver.dayAsset;
+    return WeatherSceneResolver.resolveForLocalTime(DateTime.now());
   }
 }
 

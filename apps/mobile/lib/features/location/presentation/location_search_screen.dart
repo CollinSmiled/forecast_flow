@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -12,6 +14,7 @@ class LocationSearchScreen extends StatefulWidget {
     required this.onLocationSelected,
     this.recentLocations = const [],
     this.backgroundAsset = WeatherSceneResolver.dayAsset,
+    this.backgroundAssetResolver,
     super.key,
   });
 
@@ -19,26 +22,61 @@ class LocationSearchScreen extends StatefulWidget {
   final ValueChanged<LocationResult> onLocationSelected;
   final List<LocationResult> recentLocations;
   final String backgroundAsset;
+  final ValueGetter<String>? backgroundAssetResolver;
 
   @override
   State<LocationSearchScreen> createState() => _LocationSearchScreenState();
 }
 
-class _LocationSearchScreenState extends State<LocationSearchScreen> {
+class _LocationSearchScreenState extends State<LocationSearchScreen>
+    with WidgetsBindingObserver {
   final _queryController = TextEditingController();
   late SupportedCountry _country;
+  Timer? _sceneClock;
   String? _queryError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _country = widget.controller.state.country;
+    _sceneClock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _sceneClock?.cancel();
     _queryController.dispose();
     super.dispose();
+  }
+
+  String get _backgroundAsset =>
+      widget.backgroundAssetResolver?.call() ?? widget.backgroundAsset;
+
+  Future<void> _chooseCountry() async {
+    final selected = await showModalBottomSheet<SupportedCountry>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x9905182B),
+      builder: (context) => _CountryPickerSheet(selected: _country),
+    );
+
+    if (selected != null && mounted) {
+      setState(() => _country = selected);
+    }
   }
 
   void _search() {
@@ -65,7 +103,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            widget.backgroundAsset,
+            _backgroundAsset,
             key: const ValueKey('location-scene-background'),
             fit: BoxFit.cover,
           ),
@@ -103,14 +141,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                       ),
                     ],
                   ),
-                  const Padding(
-                    padding: EdgeInsets.only(left: 40, top: 2),
-                    child: Text(
-                      'Find the forecast that matters to you.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
                   Container(
                     key: const ValueKey('location-search-form'),
                     padding: const EdgeInsets.all(16),
@@ -127,26 +158,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                     ),
                     child: Column(
                       children: [
-                        DropdownButtonFormField<SupportedCountry>(
-                          value: _country,
-                          decoration: _fieldDecoration(
-                            label: 'Country',
-                            icon: Icons.public_rounded,
-                          ),
-                          items: SupportedCountry.values
-                              .map(
-                                (country) => DropdownMenuItem(
-                                  value: country,
-                                  child: Text(country.displayName),
-                                ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (country) {
-                            if (country != null) {
-                              setState(() => _country = country);
-                            }
-                          },
-                        ),
+                        _CountryField(country: _country, onTap: _chooseCountry),
                         const SizedBox(height: 12),
                         TextField(
                           controller: _queryController,
@@ -256,6 +268,206 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
   }
 }
 
+class _CountryField extends StatelessWidget {
+  const _CountryField({required this.country, required this.onTap});
+
+  final SupportedCountry country;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.78),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        key: const ValueKey('country-selector'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 62,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0x1A17253D)),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              _CountryBadge(country: country, small: true),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Country',
+                      style: TextStyle(color: AppColors.mutedInk, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      country.displayName,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.mutedInk,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryPickerSheet extends StatelessWidget {
+  const _CountryPickerSheet({required this.selected});
+
+  final SupportedCountry selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      heightFactor: 0.78,
+      child: Container(
+        key: const ValueKey('country-picker-sheet'),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF7FAFD),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5DCE7),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Choose a country',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.6,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Select the region where you want to search.',
+                style: TextStyle(color: AppColors.mutedInk, fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: SupportedCountry.values.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final country = SupportedCountry.values[index];
+                    final isSelected = country == selected;
+
+                    return Material(
+                      color: isSelected
+                          ? const Color(0xFFE4EEFF)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        key: ValueKey('country-option-${country.code}'),
+                        onTap: () => Navigator.of(context).pop(country),
+                        borderRadius: BorderRadius.circular(18),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 11,
+                          ),
+                          child: Row(
+                            children: [
+                              _CountryBadge(country: country),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  country.displayName,
+                                  style: TextStyle(
+                                    color: AppColors.ink,
+                                    fontSize: 16,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.primary,
+                                )
+                              else
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppColors.mutedInk,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountryBadge extends StatelessWidget {
+  const _CountryBadge({required this.country, this.small = false});
+
+  final SupportedCountry country;
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = small ? 34.0 : 42.0;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFDCE8FF),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        country.code,
+        style: TextStyle(
+          color: AppColors.primary,
+          fontSize: small ? 11 : 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchBody extends StatelessWidget {
   const _SearchBody({
     required this.state,
@@ -318,14 +530,33 @@ class _RecentLocations extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Recent cities',
-                  style: Theme.of(context).textTheme.titleLarge,
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      color: AppColors.primary,
+                      size: 21,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Recent cities',
+                      style: TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
-                Text(
+                const Text(
                   'Tap a city to load its latest forecast.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: TextStyle(
+                    color: AppColors.mutedInk,
+                    fontSize: 13,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -333,20 +564,11 @@ class _RecentLocations extends StatelessWidget {
         }
 
         final location = locations[index - 1];
-        return Card(
-          elevation: 0,
-          color: Colors.white.withValues(alpha: 0.76),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: ListTile(
-            key: ValueKey('recent-location-${location.locationId}'),
-            leading: const CircleAvatar(child: Icon(Icons.history_rounded)),
-            title: Text(location.city),
-            subtitle: Text(_locationSubtitle(location)),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => onSelect(location),
-          ),
+        return _LocationCard(
+          key: ValueKey('recent-location-${location.locationId}'),
+          location: location,
+          icon: Icons.history_rounded,
+          onTap: () => onSelect(location),
         );
       },
     );
@@ -372,10 +594,45 @@ class _Results extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            '${state.results.length} result${state.results.length == 1 ? '' : 's'}',
-            style: Theme.of(context).textTheme.titleMedium,
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.travel_explore_rounded,
+                color: AppColors.primary,
+                size: 21,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Search results',
+                  style: TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCE8FF),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  '${state.results.length} result${state.results.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -388,32 +645,116 @@ class _Results extends StatelessWidget {
                   state.savingOpenMeteoLocationId ==
                   location.openMeteoLocationId;
 
-              return Card(
-                elevation: 0,
-                color: Colors.white.withValues(alpha: 0.76),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: ListTile(
-                  key: ValueKey('location-${location.openMeteoLocationId}'),
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.location_on_rounded),
-                  ),
-                  title: Text(location.city),
-                  subtitle: Text(_locationSubtitle(location)),
-                  trailing: isSaving
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Icon(Icons.chevron_right_rounded),
-                  onTap: state.isSaving ? null : () => onSelect(location),
-                ),
+              return _LocationCard(
+                key: ValueKey('location-${location.openMeteoLocationId}'),
+                location: location,
+                icon: Icons.location_on_rounded,
+                isLoading: isSaving,
+                onTap: state.isSaving ? null : () => onSelect(location),
               );
             },
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({
+    required this.location,
+    required this.icon,
+    required this.onTap,
+    this.isLoading = false,
+    super.key,
+  });
+
+  final LocationResult location;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.82),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0x1205182B)),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFDCE8FF),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      location.city,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _locationSubtitle(location),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.mutedInk,
+                        fontSize: 13,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (isLoading)
+                const SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                )
+              else
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF0F5FC),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.ink,
+                    size: 21,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

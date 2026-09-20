@@ -60,7 +60,12 @@ void main() {
     );
     expect(
       (scene.image as AssetImage).assetName,
-      isIn([WeatherSceneResolver.dayAsset, WeatherSceneResolver.nightAsset]),
+      isIn([
+        WeatherSceneResolver.morningAsset,
+        WeatherSceneResolver.dayAsset,
+        WeatherSceneResolver.eveningAsset,
+        WeatherSceneResolver.nightAsset,
+      ]),
     );
     final currentTemperature = tester.widget<Text>(
       find.byKey(const ValueKey('current-temperature')),
