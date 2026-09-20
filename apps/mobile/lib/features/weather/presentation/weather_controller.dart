@@ -28,8 +28,30 @@ class WeatherController extends ChangeNotifier {
     }
 
     _locationId = locationId;
+    await _request(locationId);
+  }
+
+  Future<void> refresh() async {
+    final locationId = _locationId;
+    final retainedForecast = switch (_state) {
+      WeatherLoaded(:final forecast) => forecast,
+      _ => null,
+    };
+    if (locationId == null) {
+      return;
+    }
+
+    await _request(locationId, retainedForecast: retainedForecast);
+  }
+
+  Future<void> _request(
+    int locationId, {
+    LatestForecast? retainedForecast,
+  }) async {
     final requestVersion = ++_requestVersion;
-    _emit(const WeatherLoading());
+    if (retainedForecast == null) {
+      _emit(const WeatherLoading());
+    }
 
     try {
       final forecast = await _loadForecast(locationId);
@@ -39,36 +61,64 @@ class WeatherController extends ChangeNotifier {
 
       _emit(WeatherLoaded(forecast));
     } on ForecastNotFoundException catch (error) {
-      if (_isCurrent(requestVersion)) {
-        _emit(WeatherNotFound(error.message));
-      }
+      _emitProblem(
+        requestVersion,
+        WeatherNotFound(error.message),
+        retainedForecast,
+      );
     } on ForecastNetworkException catch (error) {
-      if (_isCurrent(requestVersion)) {
-        _emit(WeatherFailure(message: error.message, canRetry: true));
-      }
+      _emitProblem(
+        requestVersion,
+        WeatherFailure(message: error.message, canRetry: true),
+        retainedForecast,
+      );
     } on InvalidForecastResponseException catch (error) {
-      if (_isCurrent(requestVersion)) {
-        _emit(WeatherFailure(message: error.message, canRetry: true));
-      }
+      _emitProblem(
+        requestVersion,
+        WeatherFailure(message: error.message, canRetry: true),
+        retainedForecast,
+      );
     } on ForecastHttpException catch (error) {
-      if (_isCurrent(requestVersion)) {
-        _emit(
-          WeatherFailure(
-            message: error.message,
-            canRetry: error.statusCode == null || error.statusCode! >= 500,
-          ),
-        );
-      }
+      _emitProblem(
+        requestVersion,
+        WeatherFailure(
+          message: error.message,
+          canRetry: error.statusCode == null || error.statusCode! >= 500,
+        ),
+        retainedForecast,
+      );
     } on Object {
-      if (_isCurrent(requestVersion)) {
-        _emit(
-          const WeatherFailure(
-            message: 'The forecast could not be loaded.',
-            canRetry: true,
-          ),
-        );
-      }
+      _emitProblem(
+        requestVersion,
+        const WeatherFailure(
+          message: 'The forecast could not be loaded.',
+          canRetry: true,
+        ),
+        retainedForecast,
+      );
     }
+  }
+
+  void _emitProblem(
+    int requestVersion,
+    WeatherViewState problem,
+    LatestForecast? retainedForecast,
+  ) {
+    if (!_isCurrent(requestVersion)) {
+      return;
+    }
+
+    if (retainedForecast == null) {
+      _emit(problem);
+      return;
+    }
+
+    final message = switch (problem) {
+      WeatherNotFound(:final message) => message,
+      WeatherFailure(:final message) => message,
+      _ => 'The forecast could not be refreshed.',
+    };
+    _emit(WeatherLoaded(retainedForecast, refreshErrorMessage: message));
   }
 
   Future<void> retry() async {
@@ -112,9 +162,10 @@ final class WeatherLoading extends WeatherViewState {
 }
 
 final class WeatherLoaded extends WeatherViewState {
-  const WeatherLoaded(this.forecast);
+  const WeatherLoaded(this.forecast, {this.refreshErrorMessage});
 
   final LatestForecast forecast;
+  final String? refreshErrorMessage;
 }
 
 final class WeatherNotFound extends WeatherViewState {

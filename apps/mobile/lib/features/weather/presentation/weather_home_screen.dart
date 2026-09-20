@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/time/app_time.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/latest_forecast.dart';
 import '../domain/weather_condition.dart';
@@ -68,10 +69,16 @@ class WeatherHomeScreen extends StatelessWidget {
                     WeatherInitial() || WeatherLoading() => _WeatherLoading(
                       onChooseLocation: onChooseLocation,
                     ),
-                    WeatherLoaded(:final forecast) => _WeatherContent(
-                      forecast: forecast,
-                      onChooseLocation: onChooseLocation,
-                    ),
+                    WeatherLoaded(
+                      :final forecast,
+                      :final refreshErrorMessage,
+                    ) =>
+                      _WeatherContent(
+                        forecast: forecast,
+                        refreshErrorMessage: refreshErrorMessage,
+                        onRefresh: controller.refresh,
+                        onChooseLocation: onChooseLocation,
+                      ),
                     WeatherNotFound(:final message) => _WeatherProblem(
                       title: 'Forecast unavailable',
                       message: message,
@@ -99,10 +106,14 @@ class WeatherHomeScreen extends StatelessWidget {
 class _WeatherContent extends StatelessWidget {
   const _WeatherContent({
     required this.forecast,
+    required this.refreshErrorMessage,
+    required this.onRefresh,
     required this.onChooseLocation,
   });
 
   final LatestForecast forecast;
+  final String? refreshErrorMessage;
+  final Future<void> Function() onRefresh;
   final VoidCallback onChooseLocation;
 
   @override
@@ -118,7 +129,8 @@ class _WeatherContent extends StatelessWidget {
             today.sunset != null ||
             today.daylightDurationSeconds != null);
 
-    return SingleChildScrollView(
+    final scrollView = SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +140,20 @@ class _WeatherContent extends StatelessWidget {
             country: forecast.location.country,
             onChooseLocation: onChooseLocation,
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              _updatedLabel(context),
+              key: const ValueKey('forecast-updated-at'),
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+          if (refreshErrorMessage != null) ...[
+            const SizedBox(height: 12),
+            _RefreshError(message: refreshErrorMessage!),
+          ],
+          const SizedBox(height: 28),
           Center(
             child: Image.asset(
               WeatherAssetResolver.resolve(condition, isDay: isDay),
@@ -246,6 +271,22 @@ class _WeatherContent extends StatelessWidget {
         ],
       ),
     );
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: Theme.of(context).colorScheme.primary,
+      child: scrollView,
+    );
+  }
+
+  String _updatedLabel(BuildContext context) {
+    final localRetrievedAt =
+        AppTime.tryAtLocation(forecast.retrievedAt, forecast.timezone) ??
+        forecast.retrievedAt.toLocal();
+    final time = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(localRetrievedAt));
+    return 'Updated $time';
   }
 
   String _temperature(double? value) {
@@ -258,6 +299,41 @@ class _WeatherContent extends StatelessWidget {
 
   String _decimal(double? value, {String suffix = ''}) {
     return value == null ? '--' : '${value.toStringAsFixed(1)}$suffix';
+  }
+}
+
+class _RefreshError extends StatelessWidget {
+  const _RefreshError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('forecast-refresh-error'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Showing previous forecast. $message',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

@@ -94,6 +94,84 @@ void main() {
     expect(controller.state, isA<WeatherLoaded>());
   });
 
+  test(
+    'refresh keeps the current forecast visible until replacement arrives',
+    () async {
+      var attempts = 0;
+      final refreshed = Completer<LatestForecast>();
+      final controller = WeatherController(
+        loadForecast: (locationId) {
+          attempts++;
+          if (attempts == 1) {
+            return Future.value(
+              _forecast(locationId: locationId, city: 'Jakarta'),
+            );
+          }
+          return refreshed.future;
+        },
+      );
+
+      await controller.load(3);
+      final refresh = controller.refresh();
+
+      expect(
+        controller.state,
+        isA<WeatherLoaded>().having(
+          (state) => state.forecast.location.city,
+          'city',
+          'Jakarta',
+        ),
+      );
+
+      refreshed.complete(_forecast(locationId: 3, city: 'Jakarta refreshed'));
+      await refresh;
+
+      expect(attempts, 2);
+      expect(
+        controller.state,
+        isA<WeatherLoaded>().having(
+          (state) => state.forecast.location.city,
+          'city',
+          'Jakarta refreshed',
+        ),
+      );
+    },
+  );
+
+  test(
+    'refresh failure retains the forecast and exposes its message',
+    () async {
+      var attempts = 0;
+      final forecast = _forecast(locationId: 3, city: 'Jakarta');
+      final controller = WeatherController(
+        loadForecast: (_) async {
+          attempts++;
+          if (attempts == 1) {
+            return forecast;
+          }
+          throw const ForecastNetworkException(
+            'refresh timed out',
+            cause: 'timeout',
+          );
+        },
+      );
+
+      await controller.load(3);
+      await controller.refresh();
+
+      expect(
+        controller.state,
+        isA<WeatherLoaded>()
+            .having((state) => state.forecast, 'forecast', same(forecast))
+            .having(
+              (state) => state.refreshErrorMessage,
+              'refresh error',
+              'refresh timed out',
+            ),
+      );
+    },
+  );
+
   test('an older response cannot replace a newer city selection', () async {
     final jakarta = Completer<LatestForecast>();
     final tokyo = Completer<LatestForecast>();
