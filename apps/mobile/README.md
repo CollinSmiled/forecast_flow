@@ -48,6 +48,8 @@ minute alongside the time-based scene.
 
 The hourly timeline also advances with the real clock instead of the age of
 the downloaded snapshot, so expired hours are not presented as upcoming.
+Daily rows follow the selected city's calendar date, including accurate
+`Today` and `Tomorrow` labels, and omit expired dates.
 
 To ingest a known PostgreSQL `location_id` from the repository root:
 

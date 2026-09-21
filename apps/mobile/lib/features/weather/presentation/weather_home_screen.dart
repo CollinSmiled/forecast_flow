@@ -354,7 +354,10 @@ class _WeatherContent extends StatelessWidget {
           ],
           if (forecast.daily.isNotEmpty) ...[
             const SizedBox(height: 20),
-            DailyForecastSection(forecasts: forecast.daily),
+            DailyForecastSection(
+              forecasts: forecast.daily,
+              timezone: forecast.timezone,
+            ),
           ],
         ],
       ),

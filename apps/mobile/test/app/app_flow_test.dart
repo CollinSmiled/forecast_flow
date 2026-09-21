@@ -86,7 +86,7 @@ void main() {
     expect(find.text('10 km'), findsOneWidget);
     expect(find.text('18.0 km/h'), findsOneWidget);
     expect(find.text('Sun and daylight'), findsOneWidget);
-    expect(find.text('1-day forecast'), findsOneWidget);
+    expect(find.byKey(const ValueKey('daily-forecast-empty')), findsOneWidget);
     expect(selectedLocationStore.locationId, 4);
     expect(selectedLocationStore.saveCount, 1);
 
