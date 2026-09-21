@@ -42,6 +42,10 @@ Once loaded, the weather screen refreshes quietly whenever the app returns to
 the foreground and every 15 minutes while it remains open. Pull-to-refresh is
 still available for an immediate manual check.
 
+The header, hourly forecast, sunrise, and sunset use the selected city's IANA
+timezone rather than the phone's timezone. The city-local clock updates every
+minute alongside the time-based scene.
+
 To ingest a known PostgreSQL `location_id` from the repository root:
 
 ```powershell

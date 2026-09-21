@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/latest_forecast.dart';
 import '../domain/weather_condition.dart';
+import 'city_clock.dart';
 import 'current_conditions_view_data.dart';
 import 'daily_forecast_section.dart';
 import 'forecast_freshness.dart';
@@ -182,6 +183,7 @@ class _WeatherContent extends StatelessWidget {
     final updatedLabel = freshness.updatedLabel(
       MaterialLocalizations.of(context),
     );
+    final cityTimeLabel = CityClock.label(forecast.timezone);
     final today = forecast.daily.isEmpty ? null : forecast.daily.first;
     final hasSunData =
         today != null &&
@@ -201,6 +203,20 @@ class _WeatherContent extends StatelessWidget {
             onChooseLocation: onChooseLocation,
           ),
           const SizedBox(height: 4),
+          if (cityTimeLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(
+                cityTimeLabel,
+                key: const ValueKey('city-local-time'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (cityTimeLabel != null) const SizedBox(height: 2),
           Padding(
             padding: const EdgeInsets.only(left: 28),
             child: Text(
