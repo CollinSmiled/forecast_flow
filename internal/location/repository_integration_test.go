@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/location"
 	"github.com/CollinSmiled/forecast_flow/internal/platform/postgres"
@@ -118,4 +119,75 @@ func TestRepositoryUpsertAndSearch(t *testing.T) {
 			candidate.City,
 		)
 	}
+
+	missingForecast, err := repository.ListDueForForecast(
+		ctx,
+		time.Now().UTC(),
+		100,
+	)
+	if err != nil {
+		t.Fatalf("list location without forecast: %v", err)
+	}
+	if !containsLocationID(missingForecast, created.ID) {
+		t.Fatal("location without forecast was not due")
+	}
+
+	retrievedAt := time.Now().UTC().Truncate(time.Second)
+	if _, err := transaction.Exec(
+		ctx,
+		`INSERT INTO public.latest_operational_forecasts (
+			location_id,
+			event_id,
+			schema_version,
+			source,
+			retrieved_at,
+			timezone,
+			current_valid_at,
+			current_interval_seconds
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		created.ID,
+		"repository-test-forecast-event",
+		1,
+		"test_source",
+		retrievedAt,
+		candidate.Timezone,
+		retrievedAt,
+		900,
+	); err != nil {
+		t.Fatalf("insert latest forecast: %v", err)
+	}
+
+	freshLocations, err := repository.ListDueForForecast(
+		ctx,
+		retrievedAt.Add(-time.Hour),
+		100,
+	)
+	if err != nil {
+		t.Fatalf("list locations with fresh forecast: %v", err)
+	}
+	if containsLocationID(freshLocations, created.ID) {
+		t.Fatal("location with a fresh forecast was due")
+	}
+
+	staleLocations, err := repository.ListDueForForecast(
+		ctx,
+		retrievedAt.Add(time.Hour),
+		100,
+	)
+	if err != nil {
+		t.Fatalf("list locations with stale forecast: %v", err)
+	}
+	if !containsLocationID(staleLocations, created.ID) {
+		t.Fatal("location with a stale forecast was not due")
+	}
+}
+
+func containsLocationID(locations []location.Location, locationID int64) bool {
+	for _, found := range locations {
+		if found.ID == locationID {
+			return true
+		}
+	}
+
+	return false
 }

@@ -19,7 +19,7 @@ From the repository root:
 ```powershell
 docker compose up -d postgres kafka
 docker compose --profile tools run --rm migrate
-docker compose up -d --build api hotpath
+docker compose up -d --build api hotpath scheduler
 ```
 
 Check the API before opening the app:
@@ -29,9 +29,10 @@ Invoke-RestMethod http://localhost:8080/health/live
 Invoke-RestMethod http://localhost:8080/health/ready
 ```
 
-The app reads forecasts already published by the ingester and consumed into
-PostgreSQL. A newly added city can temporarily show `Forecast unavailable`
-until its first forecast has passed through that pipeline.
+The app reads forecasts published to Kafka and consumed into PostgreSQL. The
+scheduler checks every minute for newly added cities and forecasts older than
+one hour. A new city can briefly show `Forecast unavailable` while its first
+forecast passes through that pipeline.
 
 To ingest a known PostgreSQL `location_id` from the repository root:
 
@@ -123,7 +124,9 @@ address rather than `10.0.2.2`. Then check `docker compose logs api`.
 ### Forecast unavailable
 
 The city exists in PostgreSQL but does not have a consumed operational
-forecast yet. Run the ingester for that `location_id`, then refresh the app.
+forecast yet. Wait for the scheduler's next one-minute poll, then refresh the
+app. Check `docker compose logs scheduler hotpath` if it remains unavailable.
+The one-shot ingester command above remains available for manual retries.
 
 ### UI changes do not appear
 

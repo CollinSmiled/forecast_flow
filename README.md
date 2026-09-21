@@ -6,7 +6,7 @@ The app serves the latest forecast. The data platform keeps every forecast run
 so we can study revisions, lead time, model performance, and accuracy.
 
 ```text
-Open-Meteo -> Go -> Kafka
+Open-Meteo -> Go scheduler -> Kafka
                        |-> PostgreSQL -> API -> web app
                        `-> BigQuery -> dbt -> Power BI
 ```
