@@ -150,11 +150,12 @@ class _LocationSearchScreenState extends State<LocationSearchScreen>
                     decoration: BoxDecoration(
                       color: AppColors.card,
                       borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: AppColors.cardBorder),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x2605182B),
-                          blurRadius: 24,
-                          offset: Offset(0, 10),
+                          color: AppColors.cardShadow,
+                          blurRadius: 18,
+                          offset: Offset(0, 8),
                         ),
                       ],
                     ),
@@ -200,11 +201,12 @@ class _LocationSearchScreenState extends State<LocationSearchScreen>
                       decoration: BoxDecoration(
                         color: AppColors.card,
                         borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: AppColors.cardBorder),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color(0x2605182B),
-                            blurRadius: 24,
-                            offset: Offset(0, 10),
+                            color: AppColors.cardShadow,
+                            blurRadius: 18,
+                            offset: Offset(0, 8),
                           ),
                         ],
                       ),
