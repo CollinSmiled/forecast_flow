@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="forecast_flow_sky">#4298EE</color>
+    <color name="forecast_flow_sky_dark">#2478E9</color>
+</resources>
