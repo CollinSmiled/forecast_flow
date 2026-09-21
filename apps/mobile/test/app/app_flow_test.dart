@@ -79,7 +79,7 @@ void main() {
     expect(find.text('60%'), findsOneWidget);
     expect(find.text('8.5 km/h'), findsOneWidget);
     expect(find.text('Hourly forecast'), findsOneWidget);
-    expect(find.text('10 AM'), findsOneWidget);
+    expect(find.byKey(const ValueKey('hourly-forecast-empty')), findsOneWidget);
     expect(find.text('Weather details'), findsOneWidget);
     expect(find.text('25%'), findsOneWidget);
     expect(find.text('1012 hPa'), findsOneWidget);

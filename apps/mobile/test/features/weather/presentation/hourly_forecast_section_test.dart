@@ -13,6 +13,7 @@ void main() {
           body: HourlyForecastSection(
             currentValidAt: DateTime.utc(2026, 9, 20, 1),
             timezone: 'Asia/Tokyo',
+            now: DateTime.utc(2026, 9, 20, 0, 30),
             forecasts: [
               _hour(DateTime.utc(2026, 9, 20), temperature: 20),
               _hour(DateTime.utc(2026, 9, 20, 1), temperature: 21),
@@ -32,6 +33,54 @@ void main() {
     expect(find.text('40%'), findsNWidgets(2));
   });
 
+  testWidgets('drops hours that have passed since the forecast was retrieved', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HourlyForecastSection(
+            currentValidAt: DateTime.utc(2026, 9, 20, 1),
+            timezone: 'Asia/Tokyo',
+            now: DateTime.utc(2026, 9, 20, 2, 30),
+            forecasts: [
+              _hour(DateTime.utc(2026, 9, 20, 1), temperature: 21),
+              _hour(DateTime.utc(2026, 9, 20, 2), temperature: 22),
+              _hour(DateTime.utc(2026, 9, 20, 3), temperature: 23),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('10 AM'), findsNothing);
+    expect(find.text('11 AM'), findsNothing);
+    expect(find.text('12 PM'), findsOneWidget);
+    expect(find.text('23°'), findsOneWidget);
+  });
+
+  testWidgets('does not present expired hours as upcoming', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HourlyForecastSection(
+            currentValidAt: DateTime.utc(2026, 9, 20, 1),
+            timezone: 'Asia/Tokyo',
+            now: DateTime.utc(2026, 9, 20, 4),
+            forecasts: [
+              _hour(DateTime.utc(2026, 9, 20, 1), temperature: 21),
+              _hour(DateTime.utc(2026, 9, 20, 2), temperature: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('hourly-forecast-empty')), findsOneWidget);
+    expect(find.text('21°'), findsNothing);
+    expect(find.text('22°'), findsNothing);
+  });
+
   testWidgets('uses placeholders for invalid timezone and missing values', (
     tester,
   ) async {
@@ -41,6 +90,7 @@ void main() {
           body: HourlyForecastSection(
             currentValidAt: DateTime.utc(2026, 9, 20),
             timezone: 'Invalid/Timezone',
+            now: DateTime.utc(2026, 9, 19, 23),
             forecasts: [
               HourlyForecast(
                 validAt: DateTime.utc(2026, 9, 20),

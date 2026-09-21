@@ -11,22 +11,24 @@ class HourlyForecastSection extends StatelessWidget {
     required this.forecasts,
     required this.currentValidAt,
     required this.timezone,
+    this.now,
     super.key,
   });
 
   final List<HourlyForecast> forecasts;
   final DateTime currentValidAt;
   final String timezone;
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
+    final instant = (now ?? DateTime.now()).toUtc();
+    final forecastCurrent = currentValidAt.toUtc();
+    final cutoff = instant.isAfter(forecastCurrent) ? instant : forecastCurrent;
     final upcoming = forecasts
-        .where((forecast) => !forecast.validAt.isBefore(currentValidAt))
+        .where((forecast) => !forecast.validAt.toUtc().isBefore(cutoff))
         .take(24)
         .toList(growable: false);
-    final visible = upcoming.isEmpty
-        ? forecasts.take(24).toList(growable: false)
-        : upcoming;
 
     return Container(
       width: double.infinity,
@@ -51,21 +53,31 @@ class HourlyForecastSection extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 152,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(right: 20),
-              itemCount: visible.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                return _HourlyForecastCard(
-                  forecast: visible[index],
-                  timezone: timezone,
-                );
-              },
+          if (upcoming.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 20, bottom: 4),
+              child: Text(
+                'No upcoming hourly forecast is available yet.',
+                key: const ValueKey('hourly-forecast-empty'),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            )
+          else
+            SizedBox(
+              height: 152,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(right: 20),
+                itemCount: upcoming.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  return _HourlyForecastCard(
+                    forecast: upcoming[index],
+                    timezone: timezone,
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

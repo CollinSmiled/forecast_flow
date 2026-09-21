@@ -46,6 +46,9 @@ The header, hourly forecast, sunrise, and sunset use the selected city's IANA
 timezone rather than the phone's timezone. The city-local clock updates every
 minute alongside the time-based scene.
 
+The hourly timeline also advances with the real clock instead of the age of
+the downloaded snapshot, so expired hours are not presented as upcoming.
+
 To ingest a known PostgreSQL `location_id` from the repository root:
 
 ```powershell
