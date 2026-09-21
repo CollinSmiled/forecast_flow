@@ -41,7 +41,9 @@ selection.
 
 Once loaded, the weather screen refreshes quietly whenever the app returns to
 the foreground and every 15 minutes while it remains open. Pull-to-refresh is
-still available for an immediate manual check.
+still available for an immediate manual check. If loading previously failed
+because the service could not be reached, returning to the app automatically
+retries the request.
 
 The header, hourly forecast, sunrise, and sunset use the selected city's IANA
 timezone rather than the phone's timezone. The city-local clock updates every

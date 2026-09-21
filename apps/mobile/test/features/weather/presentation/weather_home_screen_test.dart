@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forecast_flow_mobile/features/weather/data/forecast_api_client.dart';
 import 'package:forecast_flow_mobile/features/weather/data/models/latest_forecast.dart';
 import 'package:forecast_flow_mobile/features/weather/presentation/weather_controller.dart';
 import 'package:forecast_flow_mobile/features/weather/presentation/weather_home_screen.dart';
@@ -73,6 +74,83 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('retries a recoverable failure when the app resumes', (
+    tester,
+  ) async {
+    var requests = 0;
+    final controller = WeatherController(
+      loadForecast: (locationId) async {
+        requests++;
+        if (requests == 1) {
+          throw const ForecastNetworkException(
+            'service unreachable',
+            cause: 'offline',
+          );
+        }
+
+        return _forecast(locationId, request: requests);
+      },
+    );
+    await controller.load(4);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeatherHomeScreen(
+          controller: controller,
+          onChooseLocation: () {},
+        ),
+      ),
+    );
+
+    expect(controller.state, isA<WeatherFailure>());
+    expect(requests, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(controller.state, isA<WeatherLoaded>());
+    expect(requests, 2);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('does not retry a non-recoverable failure on resume', (
+    tester,
+  ) async {
+    var requests = 0;
+    final controller = WeatherController(
+      loadForecast: (_) async {
+        requests++;
+        throw const ForecastHttpException(
+          'invalid request',
+          statusCode: 400,
+        );
+      },
+    );
+    await controller.load(4);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WeatherHomeScreen(
+          controller: controller,
+          onChooseLocation: () {},
+        ),
+      ),
+    );
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    expect(controller.state, isA<WeatherFailure>());
+    expect(requests, 1);
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();

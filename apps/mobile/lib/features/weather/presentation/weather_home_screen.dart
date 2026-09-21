@@ -57,7 +57,23 @@ class _WeatherHomeScreenState extends State<WeatherHomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       setState(() {});
-      _refreshLoadedForecast();
+      _recoverForecastAfterResume();
+    }
+  }
+
+  void _recoverForecastAfterResume() {
+    switch (widget.controller.state) {
+      case WeatherLoaded():
+        unawaited(widget.controller.refresh());
+      case WeatherNotFound():
+        unawaited(widget.controller.retry());
+      case WeatherFailure(canRetry: true):
+        unawaited(widget.controller.retry());
+      case WeatherInitial() ||
+          WeatherLoading() ||
+          WeatherAwaitingForecast() ||
+          WeatherFailure():
+        break;
     }
   }
 
