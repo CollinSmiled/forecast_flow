@@ -71,7 +71,8 @@ void main() {
       find.byKey(const ValueKey('current-temperature')),
     );
     expect(currentTemperature.data, '24°');
-    expect(find.text('Updated 9:00 AM'), findsOneWidget);
+    expect(find.byKey(const ValueKey('forecast-updated-at')), findsOneWidget);
+    expect(find.byKey(const ValueKey('stale-forecast-notice')), findsOneWidget);
     expect(find.byType(RefreshIndicator), findsOneWidget);
     expect(find.text('Clear sky'), findsOneWidget);
     expect(find.text('60%'), findsOneWidget);

@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../core/time/app_time.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/models/latest_forecast.dart';
 import '../domain/weather_condition.dart';
 import 'current_conditions_view_data.dart';
 import 'daily_forecast_section.dart';
+import 'forecast_freshness.dart';
 import 'hourly_forecast_section.dart';
 import 'sun_cycle_section.dart';
 import 'weather_asset_resolver.dart';
@@ -157,6 +157,10 @@ class _WeatherContent extends StatelessWidget {
     final conditions = CurrentConditionsViewData.fromForecast(forecast);
     final condition = weatherConditionFromWmoCode(weather.weatherCode ?? -1);
     final isDay = WeatherDaylightResolver.resolve(forecast);
+    final freshness = ForecastFreshness.fromForecast(forecast);
+    final updatedLabel = freshness.updatedLabel(
+      MaterialLocalizations.of(context),
+    );
     final today = forecast.daily.isEmpty ? null : forecast.daily.first;
     final hasSunData =
         today != null &&
@@ -179,11 +183,15 @@ class _WeatherContent extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 28),
             child: Text(
-              _updatedLabel(context),
+              updatedLabel,
               key: const ValueKey('forecast-updated-at'),
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ),
+          if (freshness.isStale) ...[
+            const SizedBox(height: 12),
+            const _StaleForecastNotice(),
+          ],
           if (refreshErrorMessage != null) ...[
             const SizedBox(height: 12),
             _RefreshError(message: refreshErrorMessage!),
@@ -314,16 +322,6 @@ class _WeatherContent extends StatelessWidget {
     );
   }
 
-  String _updatedLabel(BuildContext context) {
-    final localRetrievedAt =
-        AppTime.tryAtLocation(forecast.retrievedAt, forecast.timezone) ??
-        forecast.retrievedAt.toLocal();
-    final time = MaterialLocalizations.of(
-      context,
-    ).formatTimeOfDay(TimeOfDay.fromDateTime(localRetrievedAt));
-    return 'Updated $time';
-  }
-
   String _temperature(double? value) {
     return value == null ? '--°' : '${value.round()}°';
   }
@@ -334,6 +332,49 @@ class _WeatherContent extends StatelessWidget {
 
   String _decimal(double? value, {String suffix = ''}) {
     return value == null ? '--' : '${value.toStringAsFixed(1)}$suffix';
+  }
+}
+
+class _StaleForecastNotice extends StatelessWidget {
+  const _StaleForecastNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('stale-forecast-notice'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xEFFFF8E7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x52E2A53A)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.schedule_rounded,
+              size: 19,
+              color: Color(0xFF9A6200),
+            ),
+          ),
+          SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'Weather data may be out of date. Pull down to check for a newer update.',
+              style: TextStyle(
+                color: Color(0xFF714A08),
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
