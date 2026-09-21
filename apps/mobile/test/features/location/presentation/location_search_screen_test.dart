@@ -95,6 +95,34 @@ void main() {
     expect(searched, isFalse);
   });
 
+  testWidgets('does not overflow when the keyboard opens', (tester) async {
+    final controller = LocationSearchController(
+      searchAvailable: ({required query, required country, limit = 10}) async =>
+          [],
+      saveLocation: (_) async => _location(locationId: 4),
+    );
+    tester.view.physicalSize = const Size(480, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationSearchScreen(
+          controller: controller,
+          recentLocations: [_location(locationId: 4)],
+          onLocationSelected: (_) {},
+        ),
+      ),
+    );
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('styles recent cities with the weather screen typography', (
     tester,
   ) async {

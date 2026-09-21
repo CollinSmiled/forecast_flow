@@ -69,6 +69,26 @@ While `flutter run` is active:
 After adding assets or changing `pubspec.yaml`, stop and rerun the app so the
 asset bundle is rebuilt.
 
+## Run on a physical Android phone
+
+The phone and computer must be connected to the same local network. Find the
+computer's active Wi-Fi IPv4 address:
+
+```powershell
+ipconfig
+```
+
+Then pass that address instead of the emulator-only `10.0.2.2` address. For
+example, when the computer's Wi-Fi address is `192.168.1.5`:
+
+```powershell
+flutter devices
+flutter run -d <phone-device-id> --dart-define=API_BASE_URL=http://192.168.1.5:8080
+```
+
+If Windows asks whether the API may accept private-network connections, allow
+it. The Docker API publishes port `8080` on all host interfaces.
+
 ## Validate changes
 
 The repository keeps Flutter temporary output on the `D:` drive:
@@ -97,7 +117,8 @@ build/app/outputs/flutter-apk/app-debug.apk
 ### Location request timed out
 
 Confirm both health endpoints work from Windows. If they do but the location
-endpoint hangs, restart Docker Desktop and check `docker compose logs api`.
+endpoint hangs, verify that a physical phone uses the computer's LAN IPv4
+address rather than `10.0.2.2`. Then check `docker compose logs api`.
 
 ### Forecast unavailable
 

@@ -85,6 +85,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen>
       return;
     }
 
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _queryError = null);
     widget.controller.search(query: _queryController.text, country: _country);
   }
@@ -99,6 +100,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
