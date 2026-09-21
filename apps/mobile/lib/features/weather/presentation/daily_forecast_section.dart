@@ -92,51 +92,106 @@ class _DailyForecastRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final condition = weatherConditionFromWmoCode(forecast.weatherCode ?? -1);
 
-    return SizedBox(
-      height: 72,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: Text(
-              dayLabel,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          Image.asset(
-            WeatherAssetResolver.resolve(condition, isDay: true),
-            width: 42,
-            height: 42,
-            semanticLabel: condition.label,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 280) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Column(
               children: [
-                const Icon(
-                  Icons.water_drop_outlined,
-                  size: 15,
-                  color: AppColors.primary,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dayLabel,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    Image.asset(
+                      WeatherAssetResolver.resolve(condition, isDay: true),
+                      width: 38,
+                      height: 38,
+                      semanticLabel: condition.label,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _temperature(forecast.temperature2MMax),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _temperature(forecast.temperature2MMin),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 3),
-                Text(
-                  _percentage(forecast.precipitationProbabilityMax),
-                  style: Theme.of(context).textTheme.bodyMedium,
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.water_drop_outlined,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      _percentage(forecast.precipitationProbabilityMax),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ],
             ),
+          );
+        }
+
+        return SizedBox(
+          height: 72,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(
+                  dayLabel,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              Image.asset(
+                WeatherAssetResolver.resolve(condition, isDay: true),
+                width: 42,
+                height: 42,
+                semanticLabel: condition.label,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.water_drop_outlined,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      _percentage(forecast.precipitationProbabilityMax),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                _temperature(forecast.temperature2MMax),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _temperature(forecast.temperature2MMin),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
           ),
-          Text(
-            _temperature(forecast.temperature2MMax),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(width: 10),
-          Text(
-            _temperature(forecast.temperature2MMin),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -29,6 +29,9 @@ class HourlyForecastSection extends StatelessWidget {
         .where((forecast) => !forecast.validAt.toUtc().isBefore(cutoff))
         .take(24)
         .toList(growable: false);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final accessibilityGrowth = (textScale - 1).clamp(0.0, 1.0);
+    final cardHeight = 152 + (80 * accessibilityGrowth);
 
     return Container(
       width: double.infinity,
@@ -64,7 +67,7 @@ class HourlyForecastSection extends StatelessWidget {
             )
           else
             SizedBox(
-              height: 152,
+              height: cardHeight,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(right: 20),
@@ -94,9 +97,12 @@ class _HourlyForecastCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final weather = forecast.weather;
     final condition = weatherConditionFromWmoCode(weather.weatherCode ?? -1);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final accessibilityGrowth = (textScale - 1).clamp(0.0, 1.0);
+    final cardWidth = 78 + (50 * accessibilityGrowth);
 
     return Container(
-      width: 78,
+      width: cardWidth,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.56),

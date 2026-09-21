@@ -65,11 +65,19 @@ class SunCycleSection extends StatelessWidget {
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 10),
-              Text('Daylight', style: Theme.of(context).textTheme.bodyMedium),
-              const Spacer(),
-              Text(
-                _formatDuration(forecast.daylightDurationSeconds),
-                style: Theme.of(context).textTheme.titleMedium,
+              Expanded(
+                child: Text(
+                  'Daylight',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  _formatDuration(forecast.daylightDurationSeconds),
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
             ],
           ),
