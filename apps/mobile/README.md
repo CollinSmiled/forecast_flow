@@ -31,8 +31,12 @@ Invoke-RestMethod http://localhost:8080/health/ready
 
 The app reads forecasts published to Kafka and consumed into PostgreSQL. The
 scheduler checks every minute for newly added cities and forecasts older than
-one hour. A new city can briefly show `Forecast unavailable` while its first
-forecast passes through that pipeline.
+one hour. A new city's first forecast can take about a minute to pass through
+that pipeline.
+
+When a newly saved city does not have a forecast yet, the app displays a
+`Preparing forecast` state and checks again automatically for up to 80 seconds.
+The user can also check immediately or return to city selection.
 
 To ingest a known PostgreSQL `location_id` from the repository root:
 

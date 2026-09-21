@@ -104,6 +104,10 @@ class _WeatherHomeScreenState extends State<WeatherHomeScreen>
                     WeatherInitial() || WeatherLoading() => _WeatherLoading(
                       onChooseLocation: widget.onChooseLocation,
                     ),
+                    WeatherAwaitingForecast() => _WeatherPreparing(
+                      onRetry: widget.controller.retry,
+                      onChooseLocation: widget.onChooseLocation,
+                    ),
                     WeatherLoaded(
                       :final forecast,
                       :final refreshErrorMessage,
@@ -510,6 +514,73 @@ class _WeatherLoading extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _WeatherPreparing extends StatelessWidget {
+  const _WeatherPreparing({
+    required this.onRetry,
+    required this.onChooseLocation,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onChooseLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Container(
+          key: const ValueKey('preparing-forecast'),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.cardBorder),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.cardShadow,
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Preparing forecast',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This city is new. Its latest weather should be ready within '
+                'about a minute, and this screen will update automatically.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Check now'),
+              ),
+              TextButton(
+                onPressed: onChooseLocation,
+                child: const Text('Choose another city'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

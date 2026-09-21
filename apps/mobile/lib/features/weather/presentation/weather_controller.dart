@@ -4,12 +4,27 @@ import '../data/forecast_api_client.dart';
 import '../data/models/latest_forecast.dart';
 
 typedef ForecastLoader = Future<LatestForecast> Function(int locationId);
+typedef ForecastRetryWaiter = Future<void> Function(Duration duration);
+
+Future<void> _waitForRetry(Duration duration) => Future<void>.delayed(duration);
 
 class WeatherController extends ChangeNotifier {
-  WeatherController({required ForecastLoader loadForecast})
-    : _loadForecast = loadForecast;
+  WeatherController({
+    required ForecastLoader loadForecast,
+    int pendingForecastRetries = 0,
+    Duration pendingForecastRetryDelay = const Duration(seconds: 10),
+    ForecastRetryWaiter waitForPendingForecast = _waitForRetry,
+  }) : assert(pendingForecastRetries >= 0),
+       assert(!pendingForecastRetryDelay.isNegative),
+       _loadForecast = loadForecast,
+       _pendingForecastRetries = pendingForecastRetries,
+       _pendingForecastRetryDelay = pendingForecastRetryDelay,
+       _waitForPendingForecast = waitForPendingForecast;
 
   final ForecastLoader _loadForecast;
+  final int _pendingForecastRetries;
+  final Duration _pendingForecastRetryDelay;
+  final ForecastRetryWaiter _waitForPendingForecast;
 
   WeatherViewState _state = const WeatherInitial();
   int? _locationId;
@@ -28,7 +43,7 @@ class WeatherController extends ChangeNotifier {
     }
 
     _locationId = locationId;
-    await _request(locationId);
+    await _request(locationId, pendingForecastRetries: _pendingForecastRetries);
   }
 
   Future<void> refresh() async {
@@ -47,55 +62,76 @@ class WeatherController extends ChangeNotifier {
   Future<void> _request(
     int locationId, {
     LatestForecast? retainedForecast,
+    int pendingForecastRetries = 0,
   }) async {
     final requestVersion = ++_requestVersion;
     if (retainedForecast == null) {
       _emit(const WeatherLoading());
     }
 
-    try {
-      final forecast = await _loadForecast(locationId);
-      if (!_isCurrent(requestVersion)) {
+    var retriesRemaining = pendingForecastRetries;
+    while (_isCurrent(requestVersion)) {
+      try {
+        final forecast = await _loadForecast(locationId);
+        if (!_isCurrent(requestVersion)) {
+          return;
+        }
+
+        _emit(WeatherLoaded(forecast));
+        return;
+      } on ForecastNotFoundException catch (error) {
+        if (!_isCurrent(requestVersion)) {
+          return;
+        }
+
+        if (retainedForecast == null && retriesRemaining > 0) {
+          _emit(const WeatherAwaitingForecast());
+          retriesRemaining--;
+          await _waitForPendingForecast(_pendingForecastRetryDelay);
+          continue;
+        }
+
+        _emitProblem(
+          requestVersion,
+          WeatherNotFound(error.message),
+          retainedForecast,
+        );
+        return;
+      } on ForecastNetworkException catch (error) {
+        _emitProblem(
+          requestVersion,
+          WeatherFailure(message: error.message, canRetry: true),
+          retainedForecast,
+        );
+        return;
+      } on InvalidForecastResponseException catch (error) {
+        _emitProblem(
+          requestVersion,
+          WeatherFailure(message: error.message, canRetry: true),
+          retainedForecast,
+        );
+        return;
+      } on ForecastHttpException catch (error) {
+        _emitProblem(
+          requestVersion,
+          WeatherFailure(
+            message: error.message,
+            canRetry: error.statusCode == null || error.statusCode! >= 500,
+          ),
+          retainedForecast,
+        );
+        return;
+      } on Object {
+        _emitProblem(
+          requestVersion,
+          const WeatherFailure(
+            message: 'The forecast could not be loaded.',
+            canRetry: true,
+          ),
+          retainedForecast,
+        );
         return;
       }
-
-      _emit(WeatherLoaded(forecast));
-    } on ForecastNotFoundException catch (error) {
-      _emitProblem(
-        requestVersion,
-        WeatherNotFound(error.message),
-        retainedForecast,
-      );
-    } on ForecastNetworkException catch (error) {
-      _emitProblem(
-        requestVersion,
-        WeatherFailure(message: error.message, canRetry: true),
-        retainedForecast,
-      );
-    } on InvalidForecastResponseException catch (error) {
-      _emitProblem(
-        requestVersion,
-        WeatherFailure(message: error.message, canRetry: true),
-        retainedForecast,
-      );
-    } on ForecastHttpException catch (error) {
-      _emitProblem(
-        requestVersion,
-        WeatherFailure(
-          message: error.message,
-          canRetry: error.statusCode == null || error.statusCode! >= 500,
-        ),
-        retainedForecast,
-      );
-    } on Object {
-      _emitProblem(
-        requestVersion,
-        const WeatherFailure(
-          message: 'The forecast could not be loaded.',
-          canRetry: true,
-        ),
-        retainedForecast,
-      );
     }
   }
 
@@ -159,6 +195,10 @@ final class WeatherInitial extends WeatherViewState {
 
 final class WeatherLoading extends WeatherViewState {
   const WeatherLoading();
+}
+
+final class WeatherAwaitingForecast extends WeatherViewState {
+  const WeatherAwaitingForecast();
 }
 
 final class WeatherLoaded extends WeatherViewState {

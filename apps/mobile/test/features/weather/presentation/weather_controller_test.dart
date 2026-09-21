@@ -51,6 +51,60 @@ void main() {
     },
   );
 
+  test(
+    'waits for a newly scheduled forecast and loads it automatically',
+    () async {
+      var attempts = 0;
+      final observedStates = <WeatherViewState>[];
+      final controller = WeatherController(
+        loadForecast: (locationId) async {
+          attempts++;
+          if (attempts < 3) {
+            throw const ForecastNotFoundException('forecast unavailable');
+          }
+
+          return _forecast(locationId: locationId, city: 'Tokyo');
+        },
+        pendingForecastRetries: 2,
+        waitForPendingForecast: (_) async {},
+      );
+      controller.addListener(() => observedStates.add(controller.state));
+
+      await controller.load(4);
+
+      expect(attempts, 3);
+      expect(observedStates.whereType<WeatherAwaitingForecast>().length, 2);
+      expect(
+        controller.state,
+        isA<WeatherLoaded>().having(
+          (state) => state.forecast.location.city,
+          'city',
+          'Tokyo',
+        ),
+      );
+    },
+  );
+
+  test(
+    'shows not found after pending forecast retries are exhausted',
+    () async {
+      var attempts = 0;
+      final controller = WeatherController(
+        loadForecast: (_) async {
+          attempts++;
+          throw const ForecastNotFoundException('forecast unavailable');
+        },
+        pendingForecastRetries: 2,
+        waitForPendingForecast: (_) async {},
+      );
+
+      await controller.load(4);
+
+      expect(attempts, 3);
+      expect(controller.state, isA<WeatherNotFound>());
+    },
+  );
+
   test('marks network failures as retryable', () async {
     final controller = WeatherController(
       loadForecast: (_) async {

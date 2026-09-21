@@ -68,6 +68,8 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
     );
     _weatherController = WeatherController(
       loadForecast: forecastApiClient.getLatest,
+      pendingForecastRetries: 8,
+      pendingForecastRetryDelay: const Duration(seconds: 10),
     );
     unawaited(_restoreSelectedLocation());
   }
