@@ -599,7 +599,8 @@ class _WeatherPreparing extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'This city is new. Its latest weather should be ready within '
-                'about a minute, and this screen will update automatically.',
+                'one to two minutes, and this screen will update '
+                'automatically.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),

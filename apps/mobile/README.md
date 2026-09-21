@@ -35,8 +35,9 @@ one hour. A new city's first forecast can take about a minute to pass through
 that pipeline.
 
 When a newly saved city does not have a forecast yet, the app displays a
-`Preparing forecast` state and checks again automatically for up to 80 seconds.
-The user can also check immediately or return to city selection.
+`Preparing forecast` state and checks again automatically every 10 seconds for
+up to two minutes. The user can also check immediately or return to city
+selection.
 
 Once loaded, the weather screen refreshes quietly whenever the app returns to
 the foreground and every 15 minutes while it remains open. Pull-to-refresh is
@@ -121,8 +122,16 @@ flutter test --no-pub
 Build a debug APK with the emulator API address:
 
 ```powershell
+$env:TEMP = 'D:\Personal\forecast_flow\.tmp\flutter-build-temp'
+$env:TMP = $env:TEMP
+$env:GRADLE_USER_HOME = 'D:\Personal\forecast_flow\.tmp\gradle-home'
 flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
+
+The project limits Gradle to a 1.5 GB heap, two workers, and in-process Kotlin
+compilation so Android builds do not start separate multi-gigabyte JVMs that
+exhaust the Windows paging file. The environment variables above also keep the
+Gradle cache and temporary output on `D:`.
 
 The APK is written to:
 
@@ -141,9 +150,10 @@ address rather than `10.0.2.2`. Then check `docker compose logs api`.
 ### Forecast unavailable
 
 The city exists in PostgreSQL but does not have a consumed operational
-forecast yet. Wait for the scheduler's next one-minute poll, then refresh the
-app. Check `docker compose logs scheduler hotpath` if it remains unavailable.
-The one-shot ingester command above remains available for manual retries.
+forecast yet. The app automatically checks again for up to two minutes, which
+covers the scheduler's next one-minute poll and Kafka processing. Check
+`docker compose logs scheduler hotpath` if it remains unavailable. The
+one-shot ingester command above remains available for manual retries.
 
 ### UI changes do not appear
 

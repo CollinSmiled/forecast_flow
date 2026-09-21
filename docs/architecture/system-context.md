@@ -6,9 +6,12 @@ Forecast Flow has two views of the same forecast data:
 - Analytics needs every version of every forecast.
 
 ```text
-Open-Meteo -> ingestion -> Kafka -> hot path  -> PostgreSQL -> API -> web
-                              `-> cold path -> BigQuery -> dbt -> Power BI
+Open-Meteo -> ingestion -> Kafka -> hot path -> PostgreSQL -> API -> Flutter
+                              `-> planned cold path -> BigQuery -> dbt -> Power BI
 ```
+
+The hot path is implemented. The cold-path consumer, BigQuery deployment, dbt
+models, and Power BI reporting remain planned work.
 
 The hourly forecast grain is:
 

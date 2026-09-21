@@ -32,6 +32,9 @@ class ForecastFlowApp extends StatefulWidget {
 }
 
 class _ForecastFlowAppState extends State<ForecastFlowApp> {
+  static const _pendingForecastRetries = 12;
+  static const _pendingForecastRetryDelay = Duration(seconds: 10);
+
   late final http.Client _httpClient;
   late final bool _ownsHttpClient;
   late final LocationSearchController _locationController;
@@ -68,8 +71,8 @@ class _ForecastFlowAppState extends State<ForecastFlowApp> {
     );
     _weatherController = WeatherController(
       loadForecast: forecastApiClient.getLatest,
-      pendingForecastRetries: 8,
-      pendingForecastRetryDelay: const Duration(seconds: 10),
+      pendingForecastRetries: _pendingForecastRetries,
+      pendingForecastRetryDelay: _pendingForecastRetryDelay,
     );
     unawaited(_restoreSelectedLocation());
   }
