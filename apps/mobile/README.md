@@ -38,6 +38,10 @@ When a newly saved city does not have a forecast yet, the app displays a
 `Preparing forecast` state and checks again automatically for up to 80 seconds.
 The user can also check immediately or return to city selection.
 
+Once loaded, the weather screen refreshes quietly whenever the app returns to
+the foreground and every 15 minutes while it remains open. Pull-to-refresh is
+still available for an immediate manual check.
+
 To ingest a known PostgreSQL `location_id` from the repository root:
 
 ```powershell

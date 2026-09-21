@@ -32,7 +32,10 @@ class WeatherHomeScreen extends StatefulWidget {
 
 class _WeatherHomeScreenState extends State<WeatherHomeScreen>
     with WidgetsBindingObserver {
+  static const _automaticRefreshInterval = Duration(minutes: 15);
+
   Timer? _sceneClock;
+  Timer? _refreshClock;
 
   @override
   void initState() {
@@ -43,19 +46,33 @@ class _WeatherHomeScreenState extends State<WeatherHomeScreen>
         setState(() {});
       }
     });
+    _refreshClock = Timer.periodic(
+      _automaticRefreshInterval,
+      (_) => _refreshLoadedForecast(),
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       setState(() {});
+      _refreshLoadedForecast();
     }
+  }
+
+  void _refreshLoadedForecast() {
+    if (!mounted || widget.controller.state is! WeatherLoaded) {
+      return;
+    }
+
+    unawaited(widget.controller.refresh());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _sceneClock?.cancel();
+    _refreshClock?.cancel();
     super.dispose();
   }
 
