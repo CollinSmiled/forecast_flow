@@ -19,10 +19,12 @@ Forecast verification uses a separate `weather.verification` event stream and
 `forecast_raw.verification_weather_events` table. Its reference values are
 historical reanalysis, which combines measurements and model estimates; they
 must not be presented as direct weather-station observations. The event
-contract, Open-Meteo retrieval, Kafka publishing, and raw infrastructure are
-implemented. The cold path loads these events into BigQuery and dbt exposes a
-deduplicated staging view plus typed hourly reference rows. Accuracy marts
-remain planned work.
+contract, Open-Meteo retrieval, daily timezone-aware scheduler, Kafka
+publishing, and raw infrastructure are implemented. The scheduler uses a
+configurable safety lag (seven days by default) so reanalysis data has time to
+become available. The cold path loads these events into BigQuery and dbt
+exposes a deduplicated staging view plus typed hourly reference rows. Accuracy
+marts remain planned work.
 
 The hourly forecast grain is:
 

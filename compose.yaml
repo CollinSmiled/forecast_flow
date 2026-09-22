@@ -318,6 +318,41 @@ services:
       postgres:
         condition: service_healthy
 
+  verification-scheduler:
+    image: forecast-flow-verification-scheduler:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: verificationscheduler
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      VERIFICATION_POLL_INTERVAL: "${VERIFICATION_POLL_INTERVAL:-24h}"
+      VERIFICATION_LAG_DAYS: "${VERIFICATION_LAG_DAYS:-7}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
   coldpath:
     image: forecast-flow-coldpath:dev
 
