@@ -131,3 +131,42 @@ models:
         description: Number of retained retrieval versions available for this city-hour.
         data_tests:
           - not_null
+
+  - name: fct_model_forecast_accuracy
+    description: Model forecasts matched to the latest reanalysis reference with per-hour error metrics.
+    columns:
+      - name: forecast_event_id
+        data_tests:
+          - not_null
+      - name: verification_event_id
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: model_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+      - name: forecast_run_at
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: lead_time_hours
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reanalysis']

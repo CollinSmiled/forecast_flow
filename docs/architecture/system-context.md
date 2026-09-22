@@ -24,8 +24,10 @@ publishing, and raw infrastructure are implemented. The scheduler uses a
 configurable safety lag (seven days by default) so reanalysis data has time to
 become available. The cold path loads these events into BigQuery and dbt
 exposes a deduplicated staging view, typed hourly rows, and a canonical fact
-containing the latest reanalysis version per location and valid hour. Accuracy
-marts remain planned work.
+containing the latest reanalysis version per location and valid hour. The
+hourly accuracy fact joins model forecasts to that reference and calculates
+temperature, precipitation, humidity, pressure, visibility, wind, UV, weather
+code, and precipitation-probability errors.
 
 The hourly forecast grain is:
 
@@ -37,5 +39,5 @@ Its identity includes `location_id`, `model_id`, `forecast_run_at`, and
 `valid_at`. Lead time is the difference between the last two timestamps.
 
 Verification weather has one row per location and valid hour. Accuracy models
-will join this grain to forecast facts using `location_id` and `valid_at` while
+join this grain to forecast facts using `location_id` and `valid_at` while
 retaining the verification source and retrieval time.
