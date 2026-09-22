@@ -21,8 +21,8 @@ historical reanalysis, which combines measurements and model estimates; they
 must not be presented as direct weather-station observations. The event
 contract, Open-Meteo retrieval, Kafka publishing, and raw infrastructure are
 implemented. The cold path loads these events into BigQuery and dbt exposes a
-deduplicated staging view. Hourly expansion and accuracy marts remain planned
-work.
+deduplicated staging view plus typed hourly reference rows. Accuracy marts
+remain planned work.
 
 The hourly forecast grain is:
 
