@@ -27,7 +27,8 @@ exposes a deduplicated staging view, typed hourly rows, and a canonical fact
 containing the latest reanalysis version per location and valid hour. The
 hourly accuracy fact joins model forecasts to that reference and calculates
 temperature, precipitation, humidity, pressure, visibility, wind, UV, weather
-code, and precipitation-probability errors.
+code, and precipitation-probability errors. A dashboard-ready aggregate
+summarizes those errors by model, city, and forecast lead-time bucket.
 
 The hourly forecast grain is:
 

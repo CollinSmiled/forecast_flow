@@ -170,3 +170,31 @@ models:
           - accepted_values:
               arguments:
                 values: ['reanalysis']
+
+  - name: agg_model_accuracy
+    description: Dashboard-ready model accuracy summarized by city and forecast lead-time bucket.
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: model_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+      - name: city
+        data_tests:
+          - not_null
+      - name: lead_time_bucket
+        data_tests:
+          - not_null
+      - name: matched_hour_count
+        description: Number of forecast hours with an available verification reference.
+        data_tests:
+          - not_null
