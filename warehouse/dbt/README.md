@@ -19,9 +19,9 @@ forecast_reference
 ```
 
 The `forecast_raw` dataset is owned by the Go cold-path service, while the
-`forecast_reference` dataset is populated by the one-shot location sync. dbt
-owns all three downstream datasets. Initial models are views so the project
-works in BigQuery Sandbox without DML and does not duplicate stored data.
+`forecast_reference` dataset is refreshed by the location-sync worker. dbt
+owns all three downstream datasets. Models are views so the project works in
+BigQuery Sandbox without DML and does not duplicate stored data.
 
 ## Local profile
 
@@ -56,3 +56,28 @@ The star-schema dimensions provide one descriptive row per weather model in
 `forecast_marts.dim_forecast_models` and one row per supported city in
 `forecast_marts.dim_locations`. Relationship tests verify that forecast facts
 reference valid dimension records.
+
+## Verification and accuracy
+
+The verification pipeline treats Open-Meteo historical reanalysis as a
+reference, not as direct weather-station observations. Its main models are:
+
+- `stg_verification_weather_events`: deduplicated event envelopes.
+- `int_verification_hourly_weather`: typed hourly rows retaining every event
+  version.
+- `fct_verification_weather`: latest reference version per location and valid
+  hour.
+- `fct_model_forecast_accuracy`: model forecasts matched to reference weather
+  by `location_id` and `valid_at`, with per-hour errors.
+- `agg_model_accuracy`: dashboard-ready metrics by model, city, and lead-time
+  bucket.
+
+Temperature and precipitation include mean error, MAE, and RMSE inputs. The
+hourly accuracy fact also exposes errors for humidity, pressure, visibility,
+wind, cloud cover, UV, and weather code. Precipitation probability is evaluated
+with a Brier score using 0.1 mm as the event threshold.
+
+Accuracy models can validly contain zero rows while the newest forecasts wait
+for delayed reanalysis. With the default seven-day verification lag, newly
+collected forecasts begin matching approximately one week later. Because the
+models are views, no dbt rerun is required when those source rows arrive.

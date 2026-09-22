@@ -101,7 +101,7 @@ jobs:
         run: docker compose build
 
       - name: Build analytics Compose services
-        run: docker compose --profile analytics build coldpath location-sync
+        run: docker compose --profile analytics build coldpath location-sync verification-scheduler
 
       - name: Start Compose services
         run: docker compose up --detach --wait
