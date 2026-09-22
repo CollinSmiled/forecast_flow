@@ -120,6 +120,14 @@ func TestRepositoryUpsertAndSearch(t *testing.T) {
 		)
 	}
 
+	allLocations, err := repository.ListAll(ctx)
+	if err != nil {
+		t.Fatalf("list all locations: %v", err)
+	}
+	if !containsLocationID(allLocations, created.ID) {
+		t.Fatal("saved location was absent from the reference snapshot")
+	}
+
 	missingForecast, err := repository.ListDueForForecast(
 		ctx,
 		time.Now().UTC(),

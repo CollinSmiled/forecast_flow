@@ -14,11 +14,13 @@ import (
 	"google.golang.org/api/googleapi"
 
 	"github.com/CollinSmiled/forecast_flow/internal/coldstore"
+	"github.com/CollinSmiled/forecast_flow/internal/referencedata"
 )
 
 const (
 	OperationalForecastTable = "operational_forecast_events"
 	ModelRunTable            = "model_run_events"
+	LocationsTable           = "locations"
 )
 
 type loader interface {
@@ -26,9 +28,10 @@ type loader interface {
 }
 
 type tableLoader struct {
-	client   *cloudbigquery.Client
-	table    *cloudbigquery.Table
-	location string
+	client           *cloudbigquery.Client
+	table            *cloudbigquery.Table
+	location         string
+	writeDisposition cloudbigquery.TableWriteDisposition
 }
 
 type Writer struct {
@@ -36,7 +39,12 @@ type Writer struct {
 	modelRuns            loader
 }
 
+type ReferenceWriter struct {
+	locations loader
+}
+
 var _ coldstore.Writer = (*Writer)(nil)
+var _ referencedata.LocationWriter = (*ReferenceWriter)(nil)
 
 func NewWriter(
 	client *cloudbigquery.Client,
@@ -60,16 +68,45 @@ func NewWriter(
 	dataset := client.Dataset(datasetID)
 	return newWriter(
 		&tableLoader{
-			client:   client,
-			table:    dataset.Table(OperationalForecastTable),
-			location: location,
+			client:           client,
+			table:            dataset.Table(OperationalForecastTable),
+			location:         location,
+			writeDisposition: cloudbigquery.WriteAppend,
 		},
 		&tableLoader{
-			client:   client,
-			table:    dataset.Table(ModelRunTable),
-			location: location,
+			client:           client,
+			table:            dataset.Table(ModelRunTable),
+			location:         location,
+			writeDisposition: cloudbigquery.WriteAppend,
 		},
 	), nil
+}
+
+func NewReferenceWriter(
+	client *cloudbigquery.Client,
+	datasetID string,
+	location string,
+) (*ReferenceWriter, error) {
+	if client == nil {
+		return nil, errors.New("BigQuery client is required")
+	}
+
+	datasetID = strings.TrimSpace(datasetID)
+	if datasetID == "" {
+		return nil, errors.New("BigQuery dataset ID is required")
+	}
+
+	location = strings.TrimSpace(location)
+	if location == "" {
+		return nil, errors.New("BigQuery location is required")
+	}
+
+	return newReferenceWriter(&tableLoader{
+		client:           client,
+		table:            client.Dataset(datasetID).Table(LocationsTable),
+		location:         location,
+		writeDisposition: cloudbigquery.WriteTruncate,
+	}), nil
 }
 
 func newWriter(operationalForecasts loader, modelRuns loader) *Writer {
@@ -77,6 +114,10 @@ func newWriter(operationalForecasts loader, modelRuns loader) *Writer {
 		operationalForecasts: operationalForecasts,
 		modelRuns:            modelRuns,
 	}
+}
+
+func newReferenceWriter(locations loader) *ReferenceWriter {
+	return &ReferenceWriter{locations: locations}
 }
 
 func (w *Writer) AppendOperationalForecasts(
@@ -101,6 +142,21 @@ func (w *Writer) AppendModelRuns(
 ) error {
 	if err := loadRows(ctx, w.modelRuns, "model_run", rows); err != nil {
 		return fmt.Errorf("append model-run batch to BigQuery: %w", err)
+	}
+
+	return nil
+}
+
+func (w *ReferenceWriter) ReplaceLocations(
+	ctx context.Context,
+	rows []referencedata.LocationRow,
+) error {
+	if len(rows) == 0 {
+		return errors.New("replace location snapshot: rows are required")
+	}
+
+	if err := loadRows(ctx, w.locations, "locations", rows); err != nil {
+		return fmt.Errorf("replace location snapshot in BigQuery: %w", err)
 	}
 
 	return nil
@@ -153,7 +209,7 @@ func (destination *tableLoader) Load(
 	load.JobID = jobID
 	load.Location = destination.location
 	load.CreateDisposition = cloudbigquery.CreateNever
-	load.WriteDisposition = cloudbigquery.WriteAppend
+	load.WriteDisposition = destination.writeDisposition
 
 	job, err := load.Run(ctx)
 	if err != nil {

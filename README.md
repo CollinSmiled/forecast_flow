@@ -47,3 +47,11 @@ After authenticating locally and creating the tables, run:
 ```text
 go run ./apps/coldpath
 ```
+
+The current PostgreSQL location catalog is synchronized separately into the
+`forecast_reference.locations` BigQuery table. After applying the reference
+DDL, run the one-shot synchronization from the repository root:
+
+```text
+go run ./apps/locationsync
+```
