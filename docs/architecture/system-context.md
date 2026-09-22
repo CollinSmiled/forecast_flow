@@ -19,8 +19,8 @@ Forecast verification uses a separate `weather.verification` event stream and
 `forecast_raw.verification_weather_events` table. Its reference values are
 historical reanalysis, which combines measurements and model estimates; they
 must not be presented as direct weather-station observations. The event
-contract and raw infrastructure are implemented, while retrieval, cold-path
-mapping, and accuracy marts remain planned work.
+contract, Open-Meteo retrieval, Kafka publishing, and raw infrastructure are
+implemented, while cold-path mapping and accuracy marts remain planned work.
 
 The hourly forecast grain is:
 

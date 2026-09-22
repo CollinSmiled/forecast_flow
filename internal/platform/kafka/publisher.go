@@ -93,6 +93,22 @@ func (publisher *Publisher) PublishForecastRun(
 	return nil
 }
 
+func (publisher *Publisher) PublishVerificationWeather(
+	ctx context.Context,
+	weatherEvent event.VerificationWeatherEventV1,
+) error {
+	record, err := verificationWeatherRecord(weatherEvent)
+	if err != nil {
+		return err
+	}
+
+	if err := publisher.client.ProduceSync(ctx, record).FirstErr(); err != nil {
+		return fmt.Errorf("publish verification weather event: %w", err)
+	}
+
+	return nil
+}
+
 func (publisher *Publisher) Close() {
 	publisher.client.Close()
 }
@@ -122,6 +138,20 @@ func forecastRunRecord(
 		forecastEvent.SchemaVersion,
 		forecastEvent.OccurredAt,
 		forecastEvent,
+	)
+}
+
+func verificationWeatherRecord(
+	weatherEvent event.VerificationWeatherEventV1,
+) (*kgo.Record, error) {
+	return newEventRecord(
+		event.VerificationWeatherTopic,
+		weatherEvent.PartitionKey(),
+		weatherEvent.EventID,
+		weatherEvent.EventType,
+		weatherEvent.SchemaVersion,
+		weatherEvent.OccurredAt,
+		weatherEvent,
 	)
 }
 
