@@ -1,0 +1,10 @@
+forecast_flow:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('DBT_BIGQUERY_PROJECT', 'forecast-flow-509406') }}"
+      dataset: forecast
+      location: asia-southeast2
+      threads: 4

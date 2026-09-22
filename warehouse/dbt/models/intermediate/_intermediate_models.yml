@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: int_operational_hourly_forecasts
+    description: Operational event arrays expanded to one row per location, snapshot, and valid hour.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+
+  - name: int_model_run_hourly_forecasts
+    description: Model-run arrays expanded to one row per location, model run, and valid hour.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: model_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: lead_time_hours
+        data_tests:
+          - not_null
+
+  - name: int_verification_hourly_weather
+    description: Reanalysis arrays expanded to one typed reference-weather row per event and valid hour.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null

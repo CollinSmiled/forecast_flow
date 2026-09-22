@@ -152,6 +152,50 @@ func (repository *Repository) ListDueForForecast(
 	return locations, nil
 }
 
+func (repository *Repository) ListAll(
+	ctx context.Context,
+) ([]Location, error) {
+	const query = `
+		SELECT
+			location_id,
+			open_meteo_location_id,
+			city,
+			country,
+			country_code,
+			latitude,
+			longitude,
+			timezone,
+			elevation,
+			population,
+			administrative_area,
+			created_at,
+			updated_at
+		FROM public.locations
+		ORDER BY location_id
+	`
+
+	rows, err := repository.database.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query all locations: %w", err)
+	}
+	defer rows.Close()
+
+	locations := make([]Location, 0)
+	for rows.Next() {
+		found, err := scanLocation(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan location snapshot: %w", err)
+		}
+		locations = append(locations, found)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate location snapshot: %w", err)
+	}
+
+	return locations, nil
+}
+
 func (repository *Repository) Upsert(
 	ctx context.Context,
 	candidate Location,

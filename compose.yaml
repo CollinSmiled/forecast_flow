@@ -53,7 +53,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-forecast_flow_dev}
 
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-55432}:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql
@@ -276,6 +276,152 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+
+  location-sync:
+    image: forecast-flow-location-sync:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: locationsync
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      BIGQUERY_REFERENCE_DATASET: "${BIGQUERY_REFERENCE_DATASET:-forecast_reference}"
+      BIGQUERY_LOCATION: "${BIGQUERY_LOCATION:-asia-southeast2}"
+      LOCATION_SYNC_INTERVAL: "${LOCATION_SYNC_INTERVAL:-1h}"
+
+    volumes:
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /var/run/secrets/google/application_default_credentials.json
+        read_only: true
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  verification-scheduler:
+    image: forecast-flow-verification-scheduler:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: verificationscheduler
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      VERIFICATION_POLL_INTERVAL: "${VERIFICATION_POLL_INTERVAL:-24h}"
+      VERIFICATION_LAG_DAYS: "${VERIFICATION_LAG_DAYS:-7}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  coldpath:
+    image: forecast-flow-coldpath:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: coldpath
+
+    environment:
+      KAFKA_BROKERS: "kafka:19092"
+      KAFKA_COLD_PATH_CONSUMER_GROUP: "${KAFKA_COLD_PATH_CONSUMER_GROUP:-bigquery-cold-path}"
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      BIGQUERY_DATASET: "${BIGQUERY_DATASET:-forecast_raw}"
+      BIGQUERY_LOCATION: "${BIGQUERY_LOCATION:-asia-southeast2}"
+      COLD_PATH_BATCH_INTERVAL: "${COLD_PATH_BATCH_INTERVAL:-1h}"
+      COLD_PATH_MAX_BATCH_RECORDS: "${COLD_PATH_MAX_BATCH_RECORDS:-500}"
+
+    volumes:
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /var/run/secrets/google/application_default_credentials.json
+        read_only: true
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+
+  dbt:
+    image: forecast-flow-dbt:dev
+
+    build:
+      context: .
+      dockerfile: warehouse/dbt/Dockerfile
+
+    environment:
+      DBT_BIGQUERY_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      DBT_PROFILES_DIR: /usr/app
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+
+    volumes:
+      - type: bind
+        source: ./warehouse/dbt
+        target: /usr/app
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /root/.config/gcloud/application_default_credentials.json
+        read_only: true
+
+    working_dir: /usr/app
+
+    profiles:
+      - tools
 
 volumes:
   postgres_data:

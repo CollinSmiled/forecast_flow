@@ -58,6 +58,22 @@ var singleRunHourlyVariables = []string{
 	"is_day",
 }
 
+var verificationHourlyVariables = []string{
+	"temperature_2m",
+	"apparent_temperature",
+	"relative_humidity_2m",
+	"precipitation",
+	"rain",
+	"snowfall",
+	"weather_code",
+	"cloud_cover",
+	"pressure_msl",
+	"wind_speed_10m",
+	"wind_direction_10m",
+	"wind_gusts_10m",
+	"is_day",
+}
+
 var dailyForecastVariables = []string{
 	"weather_code",
 	"temperature_2m_max",

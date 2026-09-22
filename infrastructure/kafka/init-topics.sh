@@ -14,3 +14,4 @@ create_topic() {
 
 create_topic forecast.latest
 create_topic forecast.runs
+create_topic weather.verification

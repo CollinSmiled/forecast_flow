@@ -168,6 +168,46 @@ func TestForecastRunRecord(t *testing.T) {
 	}
 }
 
+func TestVerificationWeatherRecord(t *testing.T) {
+	occurredAt := time.Date(2026, time.September, 22, 10, 0, 0, 0, time.UTC)
+	weatherEvent := event.VerificationWeatherEventV1{
+		EventID:       "verification-event-123",
+		EventType:     event.VerificationWeatherEventType,
+		SchemaVersion: event.VerificationWeatherSchemaVersion,
+		OccurredAt:    occurredAt,
+		Data: event.VerificationWeatherDataV1{
+			LocationID: 3,
+		},
+	}
+
+	record, err := verificationWeatherRecord(weatherEvent)
+	if err != nil {
+		t.Fatalf("build Kafka record: %v", err)
+	}
+	if record.Topic != event.VerificationWeatherTopic {
+		t.Errorf("topic = %q, want %q", record.Topic, event.VerificationWeatherTopic)
+	}
+	if string(record.Key) != "3" {
+		t.Errorf("key = %q, want 3", string(record.Key))
+	}
+	if !record.Timestamp.Equal(occurredAt) {
+		t.Errorf("timestamp = %v, want %v", record.Timestamp, occurredAt)
+	}
+
+	var decoded event.VerificationWeatherEventV1
+	if err := json.Unmarshal(record.Value, &decoded); err != nil {
+		t.Fatalf("decode Kafka record value: %v", err)
+	}
+	if decoded.EventID != weatherEvent.EventID {
+		t.Errorf("event ID = %q, want %q", decoded.EventID, weatherEvent.EventID)
+	}
+
+	headers := recordHeaders(record.Headers)
+	if headers["event_type"] != event.VerificationWeatherEventType {
+		t.Errorf("event_type header = %q, want %q", headers["event_type"], event.VerificationWeatherEventType)
+	}
+}
+
 func TestNormalizeBrokers(t *testing.T) {
 	brokers := normalizeBrokers([]string{
 		" localhost:9092 ",

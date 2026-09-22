@@ -3,13 +3,18 @@ package coldstore
 import "context"
 
 type Writer interface {
-	AppendOperationalForecast(
+	AppendOperationalForecasts(
 		ctx context.Context,
-		row OperationalForecastRow,
+		rows []OperationalForecastRow,
 	) error
 
-	AppendModelRun(
+	AppendModelRuns(
 		ctx context.Context,
-		row ModelRunRow,
+		rows []ModelRunRow,
+	) error
+
+	AppendVerificationWeather(
+		ctx context.Context,
+		rows []VerificationWeatherRow,
 	) error
 }

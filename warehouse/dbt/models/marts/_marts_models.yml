@@ -1,0 +1,200 @@
+version: 2
+
+models:
+  - name: dim_locations
+    description: Current descriptive geography and timezone attributes for each forecast location.
+    columns:
+      - name: location_id
+        description: Stable identifier used by forecast facts.
+        data_tests:
+          - not_null
+          - unique
+      - name: open_meteo_location_id
+        data_tests:
+          - not_null
+          - unique
+      - name: city
+        data_tests:
+          - not_null
+      - name: country_code
+        data_tests:
+          - not_null
+      - name: timezone
+        data_tests:
+          - not_null
+
+  - name: dim_forecast_models
+    description: One row per forecast model with its latest descriptive attributes and observed run range.
+    columns:
+      - name: model_id
+        description: Stable identifier used by forecast-run events.
+        data_tests:
+          - not_null
+          - unique
+      - name: provider
+        data_tests:
+          - not_null
+      - name: first_forecast_run_at
+        data_tests:
+          - not_null
+      - name: latest_forecast_run_at
+        data_tests:
+          - not_null
+
+  - name: fct_operational_hourly_forecasts
+    description: BI-ready hourly forecast snapshots used to study what users saw and when.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: valid_at
+        data_tests:
+          - not_null
+
+  - name: fct_model_forecasts
+    description: BI-ready historical model predictions at the model-run and valid-hour grain.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: lead_time_hours
+        data_tests:
+          - not_null
+      - name: model_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+
+  - name: fct_forecast_revisions
+    description: Changes between consecutive model runs predicting the same location and valid hour.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: model_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+
+  - name: fct_verification_weather
+    description: Latest available reanalysis reference at the location and valid-hour grain.
+    columns:
+      - name: event_id
+        description: Verification event selected as the latest available version for this city-hour.
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: source
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reanalysis']
+      - name: retrieved_at
+        data_tests:
+          - not_null
+      - name: verification_version_count
+        description: Number of retained retrieval versions available for this city-hour.
+        data_tests:
+          - not_null
+
+  - name: fct_model_forecast_accuracy
+    description: Model forecasts matched to the latest reanalysis reference with per-hour error metrics.
+    columns:
+      - name: forecast_event_id
+        data_tests:
+          - not_null
+      - name: verification_event_id
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: model_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+      - name: forecast_run_at
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: lead_time_hours
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reanalysis']
+
+  - name: agg_model_accuracy
+    description: Dashboard-ready model accuracy summarized by city and forecast lead-time bucket.
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: model_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
+      - name: city
+        data_tests:
+          - not_null
+      - name: lead_time_bucket
+        data_tests:
+          - not_null
+      - name: matched_hour_count
+        description: Number of forecast hours with an available verification reference.
+        data_tests:
+          - not_null
