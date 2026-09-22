@@ -40,3 +40,7 @@ docker compose --profile tools run --rm dbt build
 
 `dbt build` creates the downstream datasets/views, runs generic tests, and
 runs the custom grain tests in dependency order.
+
+The first star-schema dimension, `forecast_marts.dim_forecast_models`, provides
+one descriptive row per weather model and is tested against the model-based
+fact views.

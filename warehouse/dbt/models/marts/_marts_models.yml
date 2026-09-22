@@ -1,6 +1,24 @@
 version: 2
 
 models:
+  - name: dim_forecast_models
+    description: One row per forecast model with its latest descriptive attributes and observed run range.
+    columns:
+      - name: model_id
+        description: Stable identifier used by forecast-run events.
+        data_tests:
+          - not_null
+          - unique
+      - name: provider
+        data_tests:
+          - not_null
+      - name: first_forecast_run_at
+        data_tests:
+          - not_null
+      - name: latest_forecast_run_at
+        data_tests:
+          - not_null
+
   - name: fct_operational_hourly_forecasts
     description: BI-ready hourly forecast snapshots used to study what users saw and when.
     columns:
@@ -23,6 +41,12 @@ models:
       - name: lead_time_hours
         data_tests:
           - not_null
+      - name: model_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
 
   - name: fct_forecast_revisions
     description: Changes between consecutive model runs predicting the same location and valid hour.
@@ -33,3 +57,9 @@ models:
       - name: valid_at
         data_tests:
           - not_null
+      - name: model_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_forecast_models')
+                field: model_id
