@@ -318,6 +318,49 @@ services:
       postgres:
         condition: service_healthy
 
+  coldpath:
+    image: forecast-flow-coldpath:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: coldpath
+
+    environment:
+      KAFKA_BROKERS: "kafka:19092"
+      KAFKA_COLD_PATH_CONSUMER_GROUP: "${KAFKA_COLD_PATH_CONSUMER_GROUP:-bigquery-cold-path}"
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      BIGQUERY_DATASET: "${BIGQUERY_DATASET:-forecast_raw}"
+      BIGQUERY_LOCATION: "${BIGQUERY_LOCATION:-asia-southeast2}"
+      COLD_PATH_BATCH_INTERVAL: "${COLD_PATH_BATCH_INTERVAL:-1h}"
+      COLD_PATH_MAX_BATCH_RECORDS: "${COLD_PATH_MAX_BATCH_RECORDS:-500}"
+
+    volumes:
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /var/run/secrets/google/application_default_credentials.json
+        read_only: true
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+
   dbt:
     image: forecast-flow-dbt:dev
 

@@ -56,11 +56,12 @@ DDL, run a one-shot synchronization from the repository root:
 go run ./apps/locationsync
 ```
 
-For continuous local analytics, the optional Compose service synchronizes
-immediately and then every hour by default:
+For continuous local analytics, the optional Compose services run the Kafka
+cold-path consumer and synchronize locations immediately, then hourly by
+default:
 
 ```text
-docker compose --profile analytics up -d location-sync
+docker compose --profile analytics up -d coldpath location-sync
 ```
 
 Set `LOCATION_SYNC_INTERVAL` to another positive Go duration when needed. dbt
