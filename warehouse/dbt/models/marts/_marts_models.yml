@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: fct_operational_hourly_forecasts
+    description: BI-ready hourly forecast snapshots used to study what users saw and when.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+
+  - name: fct_model_forecasts
+    description: BI-ready historical model predictions at the model-run and valid-hour grain.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: lead_time_hours
+        data_tests:
+          - not_null
+
+  - name: fct_forecast_revisions
+    description: Changes between consecutive model runs predicting the same location and valid hour.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+      - name: valid_at
+        data_tests:
+          - not_null

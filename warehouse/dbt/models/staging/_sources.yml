@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: forecast_raw
+    description: Immutable Kafka event envelopes loaded by the Go cold-path service.
+    database: "{{ env_var('DBT_BIGQUERY_PROJECT', 'forecast-flow-509406') }}"
+    schema: forecast_raw
+    tables:
+      - name: operational_forecast_events
+        description: Latest operational forecast snapshots used by the application.
+      - name: model_run_events
+        description: Model-run snapshots retained for historical forecast analysis.

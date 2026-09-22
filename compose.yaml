@@ -277,6 +277,33 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  dbt:
+    image: forecast-flow-dbt:dev
+
+    build:
+      context: .
+      dockerfile: warehouse/dbt/Dockerfile
+
+    environment:
+      DBT_BIGQUERY_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      DBT_PROFILES_DIR: /usr/app
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+
+    volumes:
+      - type: bind
+        source: ./warehouse/dbt
+        target: /usr/app
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /root/.config/gcloud/application_default_credentials.json
+        read_only: true
+
+    working_dir: /usr/app
+
+    profiles:
+      - tools
+
 volumes:
   postgres_data:
   kafka_data:

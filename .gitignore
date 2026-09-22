@@ -14,3 +14,9 @@ Thumbs.db
 
 # Temporary local files
 .tmp/
+
+# dbt build output and local credentials
+warehouse/dbt/target/
+warehouse/dbt/logs/
+warehouse/dbt/dbt_packages/
+warehouse/dbt/profiles.yml

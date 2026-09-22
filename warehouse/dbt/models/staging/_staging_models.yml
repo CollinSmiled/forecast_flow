@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_operational_forecast_events
+    description: One deduplicated row per operational forecast event with its JSON sections exposed.
+    columns:
+      - name: event_id
+        description: Stable identifier supplied by the producing service.
+        data_tests:
+          - not_null
+          - unique
+      - name: location_id
+        data_tests:
+          - not_null
+      - name: retrieved_at
+        data_tests:
+          - not_null
+      - name: forecast_timezone
+        data_tests:
+          - not_null
+
+  - name: stg_model_run_events
+    description: One deduplicated row per provider model run with its hourly JSON array exposed.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+          - unique
+      - name: location_id
+        data_tests:
+          - not_null
+      - name: model_id
+        data_tests:
+          - not_null
+      - name: forecast_run_at
+        data_tests:
+          - not_null
