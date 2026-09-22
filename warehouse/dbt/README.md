@@ -47,6 +47,11 @@ docker compose --profile tools run --rm dbt build
 `dbt build` creates the downstream datasets/views, runs generic tests, and
 runs the custom grain tests in dependency order.
 
+Pull requests and pushes to `main` run a credential-free `dbt parse` check in
+GitHub Actions. This validates project configuration, model Jinja and YAML
+before any live BigQuery deployment is attempted. A live `dbt build` remains
+the check for BigQuery SQL execution and data tests.
+
 The star-schema dimensions provide one descriptive row per weather model in
 `forecast_marts.dim_forecast_models` and one row per supported city in
 `forecast_marts.dim_locations`. Relationship tests verify that forecast facts
