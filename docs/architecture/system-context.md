@@ -7,13 +7,13 @@ Forecast Flow has two views of the same forecast data:
 
 ```text
 Open-Meteo -> ingestion -> Kafka -> hot path -> PostgreSQL -> API -> Flutter
-                              `-> planned cold path -> BigQuery -> dbt -> Power BI
+                              `-> cold path -> BigQuery -> planned dbt/Power BI
 ```
 
-The hot path is implemented. Cold-path row mapping, batch processing, the
-dual-topic Kafka micro-batch consumer, and atomic BigQuery load jobs are in
-place; the runnable service and deployment, dbt models, and Power BI reporting
-remain planned work.
+The hot path is implemented. The runnable cold-path service includes row
+mapping, dual-topic Kafka micro-batching, and atomic BigQuery load jobs. Cloud
+provisioning and deployment, dbt models, and Power BI reporting remain planned
+work.
 
 The hourly forecast grain is:
 

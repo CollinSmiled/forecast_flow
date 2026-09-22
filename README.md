@@ -7,7 +7,7 @@ so we can study revisions, lead time, model performance, and accuracy.
 
 ```text
 Open-Meteo -> Go ingestion -> Kafka -> hot path -> PostgreSQL -> Go API -> Flutter
-                                  `-> planned cold path -> BigQuery -> dbt -> Power BI
+                                  `-> cold path -> BigQuery -> planned dbt/Power BI
 ```
 
 The key rule is simple: a forecast has both a run time (`forecast_run_at`) and
@@ -15,9 +15,11 @@ the time it predicts (`valid_at`). New runs do not overwrite old ones.
 
 ## Implemented stack
 
-Flutter, Dart, Go, Kafka, PostgreSQL, Open-Meteo, and Docker Compose.
+Flutter, Dart, Go, Kafka, PostgreSQL, Open-Meteo, BigQuery batch loading, and
+Docker Compose.
 
-BigQuery, dbt, and Power BI remain part of the planned analytics cold path.
+BigQuery cloud provisioning, dbt, and Power BI remain unfinished analytics
+work.
 
 ## Status
 
@@ -25,7 +27,19 @@ The working hot path includes scheduled ingestion, Kafka delivery, PostgreSQL
 materialization, a Go API, and a Flutter Android/iOS client with city search,
 recent cities, dynamic scenes, and current, hourly, and daily forecasts.
 
-The versioned forecast-run event, BigQuery row mapping and batch-load writer,
-cold-path batch processor, and dual-topic Kafka micro-batch consumer exist. The
-runnable cold-path service, deployment, and analytics models are not finished
-yet.
+The runnable cold-path service consumes both forecast topics in configurable
+micro-batches and uses atomic BigQuery load jobs. Cloud provisioning,
+deployment, and analytics models are not finished yet.
+
+## Cold-path configuration
+
+The cold-path service defaults to one-hour batches with at most 500 Kafka
+records. It uses Google Application Default Credentials and requires
+`GOOGLE_CLOUD_PROJECT`. Dataset and table DDL lives under
+`warehouse/bigquery/ddl`.
+
+After authenticating locally and creating the tables, run:
+
+```text
+go run ./apps/coldpath
+```
