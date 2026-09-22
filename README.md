@@ -50,8 +50,19 @@ go run ./apps/coldpath
 
 The current PostgreSQL location catalog is synchronized separately into the
 `forecast_reference.locations` BigQuery table. After applying the reference
-DDL, run the one-shot synchronization from the repository root:
+DDL, run a one-shot synchronization from the repository root:
 
 ```text
 go run ./apps/locationsync
 ```
+
+For continuous local analytics, the optional Compose service synchronizes
+immediately and then every hour by default:
+
+```text
+docker compose --profile analytics up -d location-sync
+```
+
+Set `LOCATION_SYNC_INTERVAL` to another positive Go duration when needed. dbt
+models are BigQuery views, so new source rows appear automatically; `dbt build`
+is only required when deploying or testing model changes.

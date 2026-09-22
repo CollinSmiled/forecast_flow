@@ -277,6 +277,47 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  location-sync:
+    image: forecast-flow-location-sync:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: locationsync
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      GOOGLE_APPLICATION_CREDENTIALS: /var/run/secrets/google/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT:-forecast-flow-509406}"
+      BIGQUERY_REFERENCE_DATASET: "${BIGQUERY_REFERENCE_DATASET:-forecast_reference}"
+      BIGQUERY_LOCATION: "${BIGQUERY_LOCATION:-asia-southeast2}"
+      LOCATION_SYNC_INTERVAL: "${LOCATION_SYNC_INTERVAL:-1h}"
+
+    volumes:
+      - type: bind
+        source: ${APPDATA}/gcloud/application_default_credentials.json
+        target: /var/run/secrets/google/application_default_credentials.json
+        read_only: true
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    profiles:
+      - analytics
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   dbt:
     image: forecast-flow-dbt:dev
 
