@@ -178,6 +178,40 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  scheduler:
+    image: forecast-flow-scheduler:dev
+
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+      args:
+        APP_NAME: scheduler
+
+    environment:
+      DATABASE_URL: "postgres://forecast_flow:${POSTGRES_PASSWORD:-forecast_flow_dev}@postgres:5432/forecast_flow?sslmode=disable&pool_max_conns=10"
+      KAFKA_BROKERS: "kafka:19092"
+      FORECAST_DAYS: "${FORECAST_DAYS:-10}"
+      FORECAST_POLL_INTERVAL: "${FORECAST_POLL_INTERVAL:-1m}"
+      FORECAST_MAX_AGE: "${FORECAST_MAX_AGE:-1h}"
+      FORECAST_BATCH_SIZE: "${FORECAST_BATCH_SIZE:-100}"
+
+    read_only: true
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
+
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
   ingester:
     image: forecast-flow-ingester:dev
 

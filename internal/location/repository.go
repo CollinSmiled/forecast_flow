@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -82,6 +83,73 @@ func (repository *Repository) GetByID(
 	}
 
 	return found, nil
+}
+
+func (repository *Repository) ListDueForForecast(
+	ctx context.Context,
+	staleBefore time.Time,
+	limit int,
+) ([]Location, error) {
+	if staleBefore.IsZero() {
+		return nil, errors.New(
+			"list forecast locations: stale-before time is required",
+		)
+	}
+
+	if limit < 1 || limit > maximumSearchLimit {
+		return nil, fmt.Errorf(
+			"list forecast locations: limit must be between 1 and %d",
+			maximumSearchLimit,
+		)
+	}
+
+	const query = `
+		SELECT
+			locations.location_id,
+			locations.open_meteo_location_id,
+			locations.city,
+			locations.country,
+			locations.country_code,
+			locations.latitude,
+			locations.longitude,
+			locations.timezone,
+			locations.elevation,
+			locations.population,
+			locations.administrative_area,
+			locations.created_at,
+			locations.updated_at
+		FROM public.locations AS locations
+		LEFT JOIN public.latest_operational_forecasts AS forecasts
+			ON forecasts.location_id = locations.location_id
+		WHERE forecasts.location_id IS NULL
+			OR forecasts.retrieved_at <= $1
+		ORDER BY
+			forecasts.retrieved_at ASC NULLS FIRST,
+			locations.location_id
+		LIMIT $2
+	`
+
+	rows, err := repository.database.Query(ctx, query, staleBefore, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query forecast locations: %w", err)
+	}
+	defer rows.Close()
+
+	locations := make([]Location, 0)
+	for rows.Next() {
+		found, err := scanLocation(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan forecast location: %w", err)
+		}
+
+		locations = append(locations, found)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate forecast locations: %w", err)
+	}
+
+	return locations, nil
 }
 
 func (repository *Repository) Upsert(

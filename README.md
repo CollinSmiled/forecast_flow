@@ -6,19 +6,24 @@ The app serves the latest forecast. The data platform keeps every forecast run
 so we can study revisions, lead time, model performance, and accuracy.
 
 ```text
-Open-Meteo -> Go -> Kafka
-                       |-> PostgreSQL -> API -> web app
-                       `-> BigQuery -> dbt -> Power BI
+Open-Meteo -> Go ingestion -> Kafka -> hot path -> PostgreSQL -> Go API -> Flutter
+                                  `-> planned cold path -> BigQuery -> dbt -> Power BI
 ```
 
 The key rule is simple: a forecast has both a run time (`forecast_run_at`) and
 the time it predicts (`valid_at`). New runs do not overwrite old ones.
 
-## Stack
+## Implemented stack
 
-Go, Kafka, PostgreSQL, BigQuery, dbt, Power BI, React, TypeScript, and Docker.
+Flutter, Dart, Go, Kafka, PostgreSQL, Open-Meteo, and Docker Compose.
+
+BigQuery, dbt, and Power BI remain part of the planned analytics cold path.
 
 ## Status
 
-Building the project one working increment at a time. Currently setting up the
-repository and documenting the architecture.
+The working hot path includes scheduled ingestion, Kafka delivery, PostgreSQL
+materialization, a Go API, and a Flutter Android/iOS client with city search,
+recent cities, dynamic scenes, and current, hourly, and daily forecasts.
+
+The versioned forecast-run event and BigQuery row mapping exist, but the cold
+path consumer and analytics deployment are not finished yet.

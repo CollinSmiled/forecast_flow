@@ -9,6 +9,10 @@
 **/dist
 **/coverage
 
+# Flutter is built outside the Go service images. Excluding it keeps the
+# Docker build context small, especially after local Android builds.
+apps/mobile
+
 warehouse/dbt/logs
 warehouse/dbt/target
 warehouse/dbt/dbt_packages
