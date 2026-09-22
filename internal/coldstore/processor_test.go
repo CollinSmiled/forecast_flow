@@ -110,6 +110,88 @@ func TestProcessorRoutesModelRun(t *testing.T) {
 	}
 }
 
+func TestProcessorWritesRecordsAsOneBatchPerTopic(t *testing.T) {
+	instant := testInstant()
+	writer := &recordingWriter{}
+	processor := newTestProcessor(t, writer, instant.Add(time.Minute))
+	records := make([]Record, 0, 2)
+
+	for index, eventID := range []string{"operational-1", "operational-2"} {
+		forecastEvent := event.LatestForecastEventV1{
+			EventID:       eventID,
+			EventType:     event.LatestForecastEventType,
+			SchemaVersion: event.LatestForecastSchemaVersion,
+			Data: event.LatestForecastDataV1{
+				LocationID:  int64(index + 1),
+				Source:      "open_meteo_best_match",
+				RetrievedAt: instant,
+			},
+		}
+		records = append(records, Record{
+			Metadata: KafkaRecordMetadata{
+				Topic:     event.LatestForecastTopic,
+				Partition: 0,
+				Offset:    int64(index),
+				Key:       forecastEvent.PartitionKey(),
+				Timestamp: instant,
+			},
+			Payload: encodeProcessorEvent(t, forecastEvent),
+		})
+	}
+
+	if err := processor.ProcessBatch(context.Background(), records); err != nil {
+		t.Fatalf("process batch: %v", err)
+	}
+	if writer.operationalCalls != 1 {
+		t.Fatalf("operational writer calls = %d, want 1", writer.operationalCalls)
+	}
+	if len(writer.operational) != 2 {
+		t.Fatalf("operational rows = %d, want 2", len(writer.operational))
+	}
+	if writer.modelRunCalls != 0 {
+		t.Fatalf("model-run writer calls = %d, want 0", writer.modelRunCalls)
+	}
+}
+
+func TestProcessorMapsEntireBatchBeforeWriting(t *testing.T) {
+	instant := testInstant()
+	writer := &recordingWriter{}
+	processor := newTestProcessor(t, writer, instant)
+	forecastEvent := event.LatestForecastEventV1{
+		EventID:       "operational-1",
+		EventType:     event.LatestForecastEventType,
+		SchemaVersion: event.LatestForecastSchemaVersion,
+		Data: event.LatestForecastDataV1{
+			LocationID:  1,
+			Source:      "open_meteo_best_match",
+			RetrievedAt: instant,
+		},
+	}
+	records := []Record{
+		{
+			Metadata: KafkaRecordMetadata{
+				Topic:     event.LatestForecastTopic,
+				Partition: 0,
+				Offset:    0,
+				Key:       forecastEvent.PartitionKey(),
+				Timestamp: instant,
+			},
+			Payload: encodeProcessorEvent(t, forecastEvent),
+		},
+		{
+			Metadata: KafkaRecordMetadata{Topic: event.LatestForecastTopic},
+			Payload:  []byte("not-json"),
+		},
+	}
+
+	if err := processor.ProcessBatch(context.Background(), records); err == nil {
+		t.Fatal("expected malformed event error")
+	}
+	if writer.operationalCalls != 0 || writer.modelRunCalls != 0 {
+		t.Fatal("partially mapped batch was written")
+	}
+}
+
 func TestProcessorRejectsUnsupportedTopic(t *testing.T) {
 	processor := newTestProcessor(t, &recordingWriter{}, testInstant())
 
@@ -173,30 +255,34 @@ func TestProcessorReturnsWriterError(t *testing.T) {
 }
 
 type recordingWriter struct {
-	operational []OperationalForecastRow
-	modelRuns   []ModelRunRow
-	err         error
+	operational      []OperationalForecastRow
+	modelRuns        []ModelRunRow
+	operationalCalls int
+	modelRunCalls    int
+	err              error
 }
 
-func (writer *recordingWriter) AppendOperationalForecast(
+func (writer *recordingWriter) AppendOperationalForecasts(
 	_ context.Context,
-	row OperationalForecastRow,
+	rows []OperationalForecastRow,
 ) error {
 	if writer.err != nil {
 		return writer.err
 	}
-	writer.operational = append(writer.operational, row)
+	writer.operationalCalls++
+	writer.operational = append(writer.operational, rows...)
 	return nil
 }
 
-func (writer *recordingWriter) AppendModelRun(
+func (writer *recordingWriter) AppendModelRuns(
 	_ context.Context,
-	row ModelRunRow,
+	rows []ModelRunRow,
 ) error {
 	if writer.err != nil {
 		return writer.err
 	}
-	writer.modelRuns = append(writer.modelRuns, row)
+	writer.modelRunCalls++
+	writer.modelRuns = append(writer.modelRuns, rows...)
 	return nil
 }
 

@@ -25,6 +25,7 @@ The working hot path includes scheduled ingestion, Kafka delivery, PostgreSQL
 materialization, a Go API, and a Flutter Android/iOS client with city search,
 recent cities, dynamic scenes, and current, hourly, and daily forecasts.
 
-The versioned forecast-run event, BigQuery row mapping and writer, cold-path
-event processor, and dual-topic Kafka consumer exist. The runnable cold-path
-service, deployment, and analytics models are not finished yet.
+The versioned forecast-run event, BigQuery row mapping and batch-load writer,
+cold-path batch processor, and dual-topic Kafka micro-batch consumer exist. The
+runnable cold-path service, deployment, and analytics models are not finished
+yet.

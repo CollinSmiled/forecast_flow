@@ -2,7 +2,9 @@ package bigquery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	cloudbigquery "cloud.google.com/go/bigquery"
@@ -10,108 +12,155 @@ import (
 	"github.com/CollinSmiled/forecast_flow/internal/coldstore"
 )
 
-func TestNewWriterRequiresClient(t *testing.T) {
-	writer, err := NewWriter(nil, "forecast_raw")
-	if err == nil {
-		t.Fatal("NewWriter() error = nil, want an error")
+func TestNewWriterRequiresConfiguration(t *testing.T) {
+	tests := []struct {
+		name      string
+		client    *cloudbigquery.Client
+		datasetID string
+		location  string
+	}{
+		{name: "client", datasetID: "forecast_raw", location: "asia-southeast2"},
+		{name: "dataset", client: &cloudbigquery.Client{}, location: "asia-southeast2"},
+		{name: "location", client: &cloudbigquery.Client{}, datasetID: "forecast_raw"},
 	}
-	if writer != nil {
-		t.Fatalf("NewWriter() writer = %#v, want nil", writer)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			writer, err := NewWriter(test.client, test.datasetID, test.location)
+			if err == nil {
+				t.Fatal("NewWriter() error = nil, want an error")
+			}
+			if writer != nil {
+				t.Fatalf("NewWriter() writer = %#v, want nil", writer)
+			}
+		})
 	}
 }
 
-func TestNewWriterRequiresDatasetID(t *testing.T) {
-	writer, err := NewWriter(&cloudbigquery.Client{}, "  ")
-	if err == nil {
-		t.Fatal("NewWriter() error = nil, want an error")
-	}
-	if writer != nil {
-		t.Fatalf("NewWriter() writer = %#v, want nil", writer)
-	}
-}
-
-func TestWriterAppendsOperationalForecastWithEventInsertID(t *testing.T) {
-	operational := &fakeInserter{}
-	modelRuns := &fakeInserter{}
+func TestWriterLoadsOperationalForecastBatchAsNDJSON(t *testing.T) {
+	operational := &fakeLoader{}
+	modelRuns := &fakeLoader{}
 	writer := newWriter(operational, modelRuns)
-	row := coldstore.OperationalForecastRow{EventID: "event-operational-1"}
-
-	err := writer.AppendOperationalForecast(context.Background(), row)
-	if err != nil {
-		t.Fatalf("AppendOperationalForecast() error = %v", err)
+	rows := []coldstore.OperationalForecastRow{
+		{EventID: "event-operational-1", LocationID: 3},
+		{EventID: "event-operational-2", LocationID: 4},
 	}
 
-	assertSavedRow(t, operational, row.EventID, row)
+	err := writer.AppendOperationalForecasts(context.Background(), rows)
+	if err != nil {
+		t.Fatalf("AppendOperationalForecasts() error = %v", err)
+	}
+
+	assertLoadedRows(t, operational, "operational", 2)
+	if !strings.Contains(string(operational.data), `"event_id":"event-operational-1"`) {
+		t.Fatalf("load data = %s, want snake-case event_id", operational.data)
+	}
 	if modelRuns.calls != 0 {
-		t.Fatalf("model-run Put() calls = %d, want 0", modelRuns.calls)
+		t.Fatalf("model-run Load() calls = %d, want 0", modelRuns.calls)
 	}
 }
 
-func TestWriterAppendsModelRunWithEventInsertID(t *testing.T) {
-	operational := &fakeInserter{}
-	modelRuns := &fakeInserter{}
+func TestWriterLoadsModelRunBatchAsNDJSON(t *testing.T) {
+	operational := &fakeLoader{}
+	modelRuns := &fakeLoader{}
 	writer := newWriter(operational, modelRuns)
-	row := coldstore.ModelRunRow{EventID: "event-model-run-1"}
+	rows := []coldstore.ModelRunRow{
+		{EventID: "event-model-run-1", ModelID: "ecmwf_ifs"},
+	}
 
-	err := writer.AppendModelRun(context.Background(), row)
+	err := writer.AppendModelRuns(context.Background(), rows)
 	if err != nil {
-		t.Fatalf("AppendModelRun() error = %v", err)
+		t.Fatalf("AppendModelRuns() error = %v", err)
 	}
 
-	assertSavedRow(t, modelRuns, row.EventID, row)
+	assertLoadedRows(t, modelRuns, "model_run", 1)
 	if operational.calls != 0 {
-		t.Fatalf("operational Put() calls = %d, want 0", operational.calls)
+		t.Fatalf("operational Load() calls = %d, want 0", operational.calls)
 	}
 }
 
-func TestWriterWrapsInsertError(t *testing.T) {
-	insertErr := errors.New("insert failed")
-	writer := newWriter(
-		&fakeInserter{err: insertErr},
-		&fakeInserter{},
-	)
+func TestWriterSkipsEmptyBatch(t *testing.T) {
+	operational := &fakeLoader{}
+	writer := newWriter(operational, &fakeLoader{})
 
-	err := writer.AppendOperationalForecast(
+	if err := writer.AppendOperationalForecasts(context.Background(), nil); err != nil {
+		t.Fatalf("AppendOperationalForecasts() error = %v", err)
+	}
+	if operational.calls != 0 {
+		t.Fatalf("Load() calls = %d, want 0", operational.calls)
+	}
+}
+
+func TestWriterUsesDeterministicJobID(t *testing.T) {
+	first := &fakeLoader{}
+	second := &fakeLoader{}
+	rows := []coldstore.OperationalForecastRow{{EventID: "event-1"}}
+
+	if err := newWriter(first, &fakeLoader{}).
+		AppendOperationalForecasts(context.Background(), rows); err != nil {
+		t.Fatalf("first append: %v", err)
+	}
+	if err := newWriter(second, &fakeLoader{}).
+		AppendOperationalForecasts(context.Background(), rows); err != nil {
+		t.Fatalf("second append: %v", err)
+	}
+	if first.jobID != second.jobID {
+		t.Fatalf("job IDs = %q and %q, want equal", first.jobID, second.jobID)
+	}
+}
+
+func TestWriterWrapsLoadError(t *testing.T) {
+	loadError := errors.New("load failed")
+	writer := newWriter(&fakeLoader{err: loadError}, &fakeLoader{})
+
+	err := writer.AppendOperationalForecasts(
 		context.Background(),
-		coldstore.OperationalForecastRow{EventID: "event-1"},
+		[]coldstore.OperationalForecastRow{{EventID: "event-1"}},
 	)
-	if !errors.Is(err, insertErr) {
-		t.Fatalf("AppendOperationalForecast() error = %v, want %v", err, insertErr)
+	if !errors.Is(err, loadError) {
+		t.Fatalf("AppendOperationalForecasts() error = %v, want %v", err, loadError)
 	}
 }
 
-func assertSavedRow(
+func assertLoadedRows(
 	t *testing.T,
-	inserter *fakeInserter,
-	wantInsertID string,
-	wantRow interface{},
+	loader *fakeLoader,
+	wantPrefix string,
+	wantRows int,
 ) {
 	t.Helper()
 
-	if inserter.calls != 1 {
-		t.Fatalf("Put() calls = %d, want 1", inserter.calls)
+	if loader.calls != 1 {
+		t.Fatalf("Load() calls = %d, want 1", loader.calls)
+	}
+	if !strings.HasPrefix(loader.jobID, "forecast_flow_"+wantPrefix+"_") {
+		t.Fatalf("job ID = %q, want %q prefix", loader.jobID, wantPrefix)
 	}
 
-	saver, ok := inserter.src.(*cloudbigquery.StructSaver)
-	if !ok {
-		t.Fatalf("Put() source type = %T, want *bigquery.StructSaver", inserter.src)
+	decoder := json.NewDecoder(strings.NewReader(string(loader.data)))
+	rows := 0
+	for decoder.More() {
+		var row map[string]any
+		if err := decoder.Decode(&row); err != nil {
+			t.Fatalf("decode NDJSON row: %v", err)
+		}
+		rows++
 	}
-	if saver.InsertID != wantInsertID {
-		t.Fatalf("StructSaver.InsertID = %q, want %q", saver.InsertID, wantInsertID)
-	}
-	if saver.Struct != wantRow {
-		t.Fatalf("StructSaver.Struct = %#v, want %#v", saver.Struct, wantRow)
+	if rows != wantRows {
+		t.Fatalf("NDJSON rows = %d, want %d", rows, wantRows)
 	}
 }
 
-type fakeInserter struct {
+type fakeLoader struct {
 	calls int
-	src   interface{}
+	jobID string
+	data  []byte
 	err   error
 }
 
-func (f *fakeInserter) Put(_ context.Context, src interface{}) error {
+func (f *fakeLoader) Load(_ context.Context, jobID string, data []byte) error {
 	f.calls++
-	f.src = src
+	f.jobID = jobID
+	f.data = append([]byte(nil), data...)
 	return f.err
 }

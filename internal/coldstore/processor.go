@@ -33,74 +33,121 @@ func (processor *Processor) Process(
 	metadata KafkaRecordMetadata,
 	payload []byte,
 ) error {
+	return processor.ProcessBatch(ctx, []Record{{
+		Metadata: metadata,
+		Payload:  payload,
+	}})
+}
+
+func (processor *Processor) ProcessBatch(
+	ctx context.Context,
+	records []Record,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	switch metadata.Topic {
-	case event.LatestForecastTopic:
-		return processor.processOperationalForecast(
-			ctx,
-			metadata,
-			payload,
-		)
-	case event.ForecastRunTopic:
-		return processor.processModelRun(ctx, metadata, payload)
-	default:
-		return fmt.Errorf("%w %q", ErrUnsupportedTopic, metadata.Topic)
+	ingestedAt := processor.now().UTC()
+	operationalRows := make([]OperationalForecastRow, 0, len(records))
+	modelRunRows := make([]ModelRunRow, 0, len(records))
+
+	for _, record := range records {
+		switch record.Metadata.Topic {
+		case event.LatestForecastTopic:
+			row, err := processor.mapOperationalForecast(
+				record.Metadata,
+				record.Payload,
+				ingestedAt,
+			)
+			if err != nil {
+				return err
+			}
+			operationalRows = append(operationalRows, row)
+		case event.ForecastRunTopic:
+			row, err := processor.mapModelRun(
+				record.Metadata,
+				record.Payload,
+				ingestedAt,
+			)
+			if err != nil {
+				return err
+			}
+			modelRunRows = append(modelRunRows, row)
+		default:
+			return fmt.Errorf(
+				"%w %q",
+				ErrUnsupportedTopic,
+				record.Metadata.Topic,
+			)
+		}
 	}
+
+	if len(operationalRows) > 0 {
+		if err := processor.writer.AppendOperationalForecasts(
+			ctx,
+			operationalRows,
+		); err != nil {
+			return fmt.Errorf("append operational forecast batch: %w", err)
+		}
+	}
+
+	if len(modelRunRows) > 0 {
+		if err := processor.writer.AppendModelRuns(ctx, modelRunRows); err != nil {
+			return fmt.Errorf("append model-run batch: %w", err)
+		}
+	}
+
+	return nil
 }
 
-func (processor *Processor) processOperationalForecast(
-	ctx context.Context,
+func (processor *Processor) mapOperationalForecast(
 	metadata KafkaRecordMetadata,
 	payload []byte,
-) error {
+	ingestedAt time.Time,
+) (OperationalForecastRow, error) {
 	var forecastEvent event.LatestForecastEventV1
 	if err := json.Unmarshal(payload, &forecastEvent); err != nil {
-		return fmt.Errorf("decode operational forecast event: %w", err)
+		return OperationalForecastRow{}, fmt.Errorf(
+			"decode operational forecast event: %w",
+			err,
+		)
 	}
 
 	row, err := NewOperationalForecastRow(
 		forecastEvent,
 		metadata,
 		payload,
-		processor.now().UTC(),
+		ingestedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("map operational forecast event: %w", err)
+		return OperationalForecastRow{}, fmt.Errorf(
+			"map operational forecast event: %w",
+			err,
+		)
 	}
 
-	if err := processor.writer.AppendOperationalForecast(ctx, row); err != nil {
-		return fmt.Errorf("append operational forecast event: %w", err)
-	}
-
-	return nil
+	return row, nil
 }
 
-func (processor *Processor) processModelRun(
-	ctx context.Context,
+func (processor *Processor) mapModelRun(
 	metadata KafkaRecordMetadata,
 	payload []byte,
-) error {
+	ingestedAt time.Time,
+) (ModelRunRow, error) {
 	var forecastEvent event.ForecastRunEventV1
 	if err := json.Unmarshal(payload, &forecastEvent); err != nil {
-		return fmt.Errorf("decode model-run event: %w", err)
+		return ModelRunRow{}, fmt.Errorf("decode model-run event: %w", err)
 	}
 
 	row, err := NewModelRunRow(
 		forecastEvent,
 		metadata,
 		payload,
-		processor.now().UTC(),
+		ingestedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("map model-run event: %w", err)
+		return ModelRunRow{}, fmt.Errorf("map model-run event: %w", err)
 	}
 
-	if err := processor.writer.AppendModelRun(ctx, row); err != nil {
-		return fmt.Errorf("append model-run event: %w", err)
-	}
-
-	return nil
+	return row, nil
 }

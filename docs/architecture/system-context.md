@@ -10,9 +10,10 @@ Open-Meteo -> ingestion -> Kafka -> hot path -> PostgreSQL -> API -> Flutter
                               `-> planned cold path -> BigQuery -> dbt -> Power BI
 ```
 
-The hot path is implemented. Cold-path row mapping, topic processing, the
-dual-topic Kafka consumer, and the BigQuery writer are in place; the runnable
-service and deployment, dbt models, and Power BI reporting remain planned work.
+The hot path is implemented. Cold-path row mapping, batch processing, the
+dual-topic Kafka micro-batch consumer, and atomic BigQuery load jobs are in
+place; the runnable service and deployment, dbt models, and Power BI reporting
+remain planned work.
 
 The hourly forecast grain is:
 

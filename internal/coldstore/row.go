@@ -18,38 +18,43 @@ type KafkaRecordMetadata struct {
 	Timestamp time.Time
 }
 
+type Record struct {
+	Metadata KafkaRecordMetadata
+	Payload  []byte
+}
+
 type OperationalForecastRow struct {
-	EventID        string    `bigquery:"event_id"`
-	EventType      string    `bigquery:"event_type"`
-	SchemaVersion  int       `bigquery:"schema_version"`
-	LocationID     int64     `bigquery:"location_id"`
-	Source         string    `bigquery:"source"`
-	RetrievedAt    time.Time `bigquery:"retrieved_at"`
-	KafkaTopic     string    `bigquery:"kafka_topic"`
-	KafkaPartition int64     `bigquery:"kafka_partition"`
-	KafkaOffset    int64     `bigquery:"kafka_offset"`
-	KafkaKey       string    `bigquery:"kafka_key"`
-	KafkaTimestamp time.Time `bigquery:"kafka_timestamp"`
-	Payload        string    `bigquery:"payload"`
-	IngestedAt     time.Time `bigquery:"ingested_at"`
+	EventID        string    `bigquery:"event_id" json:"event_id"`
+	EventType      string    `bigquery:"event_type" json:"event_type"`
+	SchemaVersion  int       `bigquery:"schema_version" json:"schema_version"`
+	LocationID     int64     `bigquery:"location_id" json:"location_id"`
+	Source         string    `bigquery:"source" json:"source"`
+	RetrievedAt    time.Time `bigquery:"retrieved_at" json:"retrieved_at"`
+	KafkaTopic     string    `bigquery:"kafka_topic" json:"kafka_topic"`
+	KafkaPartition int64     `bigquery:"kafka_partition" json:"kafka_partition"`
+	KafkaOffset    int64     `bigquery:"kafka_offset" json:"kafka_offset"`
+	KafkaKey       string    `bigquery:"kafka_key" json:"kafka_key"`
+	KafkaTimestamp time.Time `bigquery:"kafka_timestamp" json:"kafka_timestamp"`
+	Payload        string    `bigquery:"payload" json:"payload"`
+	IngestedAt     time.Time `bigquery:"ingested_at" json:"ingested_at"`
 }
 
 type ModelRunRow struct {
-	EventID        string    `bigquery:"event_id"`
-	EventType      string    `bigquery:"event_type"`
-	SchemaVersion  int       `bigquery:"schema_version"`
-	LocationID     int64     `bigquery:"location_id"`
-	ModelID        string    `bigquery:"model_id"`
-	Provider       string    `bigquery:"provider"`
-	ForecastRunAt  time.Time `bigquery:"forecast_run_at"`
-	RetrievedAt    time.Time `bigquery:"retrieved_at"`
-	KafkaTopic     string    `bigquery:"kafka_topic"`
-	KafkaPartition int64     `bigquery:"kafka_partition"`
-	KafkaOffset    int64     `bigquery:"kafka_offset"`
-	KafkaKey       string    `bigquery:"kafka_key"`
-	KafkaTimestamp time.Time `bigquery:"kafka_timestamp"`
-	Payload        string    `bigquery:"payload"`
-	IngestedAt     time.Time `bigquery:"ingested_at"`
+	EventID        string    `bigquery:"event_id" json:"event_id"`
+	EventType      string    `bigquery:"event_type" json:"event_type"`
+	SchemaVersion  int       `bigquery:"schema_version" json:"schema_version"`
+	LocationID     int64     `bigquery:"location_id" json:"location_id"`
+	ModelID        string    `bigquery:"model_id" json:"model_id"`
+	Provider       string    `bigquery:"provider" json:"provider"`
+	ForecastRunAt  time.Time `bigquery:"forecast_run_at" json:"forecast_run_at"`
+	RetrievedAt    time.Time `bigquery:"retrieved_at" json:"retrieved_at"`
+	KafkaTopic     string    `bigquery:"kafka_topic" json:"kafka_topic"`
+	KafkaPartition int64     `bigquery:"kafka_partition" json:"kafka_partition"`
+	KafkaOffset    int64     `bigquery:"kafka_offset" json:"kafka_offset"`
+	KafkaKey       string    `bigquery:"kafka_key" json:"kafka_key"`
+	KafkaTimestamp time.Time `bigquery:"kafka_timestamp" json:"kafka_timestamp"`
+	Payload        string    `bigquery:"payload" json:"payload"`
+	IngestedAt     time.Time `bigquery:"ingested_at" json:"ingested_at"`
 }
 
 func NewOperationalForecastRow(

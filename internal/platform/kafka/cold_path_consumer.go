@@ -6,43 +6,66 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/CollinSmiled/forecast_flow/internal/coldstore"
 	"github.com/CollinSmiled/forecast_flow/internal/event"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-const coldPathClientID = "forecast-flow-cold-path"
+const (
+	coldPathClientID   = "forecast-flow-cold-path"
+	defaultPollTimeout = time.Second
+)
+
+type ColdPathConsumerConfig struct {
+	Brokers         []string
+	GroupID         string
+	BatchInterval   time.Duration
+	MaxBatchRecords int
+}
 
 type ColdPathRecordProcessor interface {
-	Process(
-		ctx context.Context,
-		metadata coldstore.KafkaRecordMetadata,
-		payload []byte,
-	) error
+	ProcessBatch(ctx context.Context, records []coldstore.Record) error
+}
+
+type coldPathKafkaClient interface {
+	PollRecords(ctx context.Context, maxRecords int) kgo.Fetches
+	CommitRecords(ctx context.Context, records ...*kgo.Record) error
+	Close()
 }
 
 type ColdPathConsumer struct {
-	client    *kgo.Client
-	processor ColdPathRecordProcessor
-	logger    *slog.Logger
+	client          coldPathKafkaClient
+	processor       ColdPathRecordProcessor
+	logger          *slog.Logger
+	batchInterval   time.Duration
+	maxBatchRecords int
+	pollTimeout     time.Duration
 }
 
 func NewColdPathConsumer(
 	ctx context.Context,
-	brokers []string,
-	groupID string,
+	config ColdPathConsumerConfig,
 	processor ColdPathRecordProcessor,
 	logger *slog.Logger,
 ) (*ColdPathConsumer, error) {
-	brokers = normalizeBrokers(brokers)
-	if len(brokers) == 0 {
+	config.Brokers = normalizeBrokers(config.Brokers)
+	if len(config.Brokers) == 0 {
 		return nil, errors.New("at least one Kafka broker is required")
 	}
 
-	groupID = strings.TrimSpace(groupID)
-	if groupID == "" {
+	config.GroupID = strings.TrimSpace(config.GroupID)
+	if config.GroupID == "" {
 		return nil, errors.New("Kafka consumer group ID is required")
+	}
+
+	if config.BatchInterval <= 0 {
+		return nil, errors.New("cold-path batch interval must be greater than zero")
+	}
+
+	if config.MaxBatchRecords < 1 {
+		return nil, errors.New("cold-path maximum batch records must be greater than zero")
 	}
 
 	if processor == nil {
@@ -54,9 +77,9 @@ func NewColdPathConsumer(
 	}
 
 	client, err := kgo.NewClient(
-		kgo.SeedBrokers(brokers...),
+		kgo.SeedBrokers(config.Brokers...),
 		kgo.ClientID(coldPathClientID),
-		kgo.ConsumerGroup(groupID),
+		kgo.ConsumerGroup(config.GroupID),
 		kgo.ConsumeTopics(
 			event.LatestForecastTopic,
 			event.ForecastRunTopic,
@@ -74,51 +97,36 @@ func NewColdPathConsumer(
 	}
 
 	return &ColdPathConsumer{
-		client:    client,
-		processor: processor,
-		logger:    logger,
+		client:          client,
+		processor:       processor,
+		logger:          logger,
+		batchInterval:   config.BatchInterval,
+		maxBatchRecords: config.MaxBatchRecords,
+		pollTimeout:     defaultPollTimeout,
 	}, nil
 }
 
 func (consumer *ColdPathConsumer) Run(ctx context.Context) error {
 	for {
-		fetches := consumer.client.PollFetches(ctx)
+		records, err := consumer.collectBatch(ctx)
+		if err != nil {
+			return err
+		}
 		if ctx.Err() != nil {
 			return nil
 		}
-
-		if fetchErrors := fetches.Errors(); len(fetchErrors) > 0 {
-			return fmt.Errorf(
-				"poll cold-path records: %w",
-				fetchErrors[0].Err,
-			)
+		if len(records) == 0 {
+			continue
 		}
 
-		iterator := fetches.RecordIter()
-		for !iterator.Done() {
-			record := iterator.Next()
-			if err := consumer.processRecord(ctx, record); err != nil {
-				return fmt.Errorf(
-					"process cold-path record from topic %s at partition %d offset %d: %w",
-					record.Topic,
-					record.Partition,
-					record.Offset,
-					err,
-				)
-			}
-
-			if err := consumer.client.CommitRecords(ctx, record); err != nil {
-				return fmt.Errorf("commit cold-path offset: %w", err)
-			}
-
-			consumer.logger.Info(
-				"cold-path record processed",
-				"topic", record.Topic,
-				"partition", record.Partition,
-				"offset", record.Offset,
-				"key", string(record.Key),
-			)
+		if err := consumer.processBatch(ctx, records); err != nil {
+			return err
 		}
+
+		consumer.logger.Info(
+			"cold-path batch processed",
+			"records", len(records),
+		)
 	}
 }
 
@@ -126,24 +134,106 @@ func (consumer *ColdPathConsumer) Close() {
 	consumer.client.Close()
 }
 
-func (consumer *ColdPathConsumer) processRecord(
+func (consumer *ColdPathConsumer) collectBatch(
 	ctx context.Context,
-	record *kgo.Record,
+) ([]*kgo.Record, error) {
+	deadline := time.Now().Add(consumer.batchInterval)
+	records := make([]*kgo.Record, 0, consumer.maxBatchRecords)
+
+	for len(records) < consumer.maxBatchRecords {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return records, nil
+		}
+
+		pollFor := min(consumer.pollTimeout, remaining)
+		pollContext, cancel := context.WithTimeout(ctx, pollFor)
+		fetches := consumer.client.PollRecords(
+			pollContext,
+			consumer.maxBatchRecords-len(records),
+		)
+		pollError := pollContext.Err()
+		cancel()
+
+		if ctx.Err() != nil {
+			return nil, nil
+		}
+
+		for _, fetchError := range fetches.Errors() {
+			if errors.Is(pollError, context.DeadlineExceeded) &&
+				errors.Is(fetchError.Err, context.DeadlineExceeded) {
+				continue
+			}
+			return nil, fmt.Errorf(
+				"poll cold-path records from topic %s partition %d: %w",
+				fetchError.Topic,
+				fetchError.Partition,
+				fetchError.Err,
+			)
+		}
+
+		iterator := fetches.RecordIter()
+		for !iterator.Done() {
+			records = append(records, iterator.Next())
+		}
+	}
+
+	return records, nil
+}
+
+func (consumer *ColdPathConsumer) processBatch(
+	ctx context.Context,
+	records []*kgo.Record,
 ) error {
-	if record == nil {
-		return errors.New("Kafka record is required")
+	if len(records) == 0 {
+		return nil
 	}
 
-	metadata := coldstore.KafkaRecordMetadata{
-		Topic:     record.Topic,
-		Partition: record.Partition,
-		Offset:    record.Offset,
-		Key:       string(record.Key),
-		Timestamp: record.Timestamp,
+	type topicBatch struct {
+		kafkaRecords []*kgo.Record
+		coldRecords  []coldstore.Record
 	}
 
-	if err := consumer.processor.Process(ctx, metadata, record.Value); err != nil {
-		return fmt.Errorf("process cold-path event: %w", err)
+	topicOrder := make([]string, 0, 2)
+	topicBatches := make(map[string]*topicBatch, 2)
+	for _, record := range records {
+		if record == nil {
+			return errors.New("Kafka record is required")
+		}
+
+		batch, exists := topicBatches[record.Topic]
+		if !exists {
+			batch = &topicBatch{}
+			topicBatches[record.Topic] = batch
+			topicOrder = append(topicOrder, record.Topic)
+		}
+
+		batch.kafkaRecords = append(batch.kafkaRecords, record)
+		batch.coldRecords = append(batch.coldRecords, coldstore.Record{
+			Metadata: coldstore.KafkaRecordMetadata{
+				Topic:     record.Topic,
+				Partition: record.Partition,
+				Offset:    record.Offset,
+				Key:       string(record.Key),
+				Timestamp: record.Timestamp,
+			},
+			Payload: record.Value,
+		})
+	}
+
+	for _, topic := range topicOrder {
+		batch := topicBatches[topic]
+		if err := consumer.processor.ProcessBatch(ctx, batch.coldRecords); err != nil {
+			return fmt.Errorf("process cold-path batch for topic %s: %w", topic, err)
+		}
+
+		if err := consumer.client.CommitRecords(ctx, batch.kafkaRecords...); err != nil {
+			return fmt.Errorf(
+				"commit cold-path batch offsets for topic %s: %w",
+				topic,
+				err,
+			)
+		}
 	}
 
 	return nil
