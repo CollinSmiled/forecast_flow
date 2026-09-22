@@ -1,10 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/CollinSmiled/forecast_flow/internal/ingestion"
 )
+
+type stubForecastBatch struct {
+	result ingestion.OperationalForecastBatchResult
+	err    error
+}
+
+func (batch stubForecastBatch) Run(
+	context.Context,
+	time.Time,
+) (ingestion.OperationalForecastBatchResult, error) {
+	return batch.result, batch.err
+}
 
 func TestRunScheduleRunsImmediatelyAndRepeats(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -105,5 +122,43 @@ func TestPositiveIntOrDefault(t *testing.T) {
 	}
 	if value != 25 {
 		t.Errorf("batch size = %d, want 25", value)
+	}
+}
+
+func TestRunCycleDoesNotLogEmptyCyclesAtInfo(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+
+	runCycle(
+		context.Background(),
+		logger,
+		stubForecastBatch{},
+		time.Now().UTC(),
+	)
+
+	if output.Len() != 0 {
+		t.Fatalf("empty cycle log = %q, want no info log", output.String())
+	}
+}
+
+func TestRunCycleLogsCompletedWorkAtInfo(t *testing.T) {
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+
+	runCycle(
+		context.Background(),
+		logger,
+		stubForecastBatch{
+			result: ingestion.OperationalForecastBatchResult{Due: 1},
+		},
+		time.Now().UTC(),
+	)
+
+	logged := output.String()
+	if !strings.Contains(logged, `"msg":"forecast ingestion cycle completed"`) {
+		t.Fatalf("completed cycle log = %q, want completion message", logged)
+	}
+	if !strings.Contains(logged, `"due":1`) {
+		t.Fatalf("completed cycle log = %q, want due count", logged)
 	}
 }

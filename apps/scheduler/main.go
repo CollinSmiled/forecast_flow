@@ -176,7 +176,14 @@ func runCycle(
 		)
 	}
 
-	logger.Info(
+	completionLevel := slog.LevelDebug
+	if result.Due > 0 {
+		completionLevel = slog.LevelInfo
+	}
+
+	logger.Log(
+		ctx,
+		completionLevel,
 		"forecast ingestion cycle completed",
 		"due", result.Due,
 		"published", len(result.Published),
