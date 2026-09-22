@@ -23,7 +23,8 @@ contract, Open-Meteo retrieval, daily timezone-aware scheduler, Kafka
 publishing, and raw infrastructure are implemented. The scheduler uses a
 configurable safety lag (seven days by default) so reanalysis data has time to
 become available. The cold path loads these events into BigQuery and dbt
-exposes a deduplicated staging view plus typed hourly reference rows. Accuracy
+exposes a deduplicated staging view, typed hourly rows, and a canonical fact
+containing the latest reanalysis version per location and valid hour. Accuracy
 marts remain planned work.
 
 The hourly forecast grain is:

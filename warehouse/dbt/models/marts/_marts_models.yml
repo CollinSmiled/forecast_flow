@@ -97,3 +97,37 @@ models:
               arguments:
                 to: ref('dim_forecast_models')
                 field: model_id
+
+  - name: fct_verification_weather
+    description: Latest available reanalysis reference at the location and valid-hour grain.
+    columns:
+      - name: event_id
+        description: Verification event selected as the latest available version for this city-hour.
+        data_tests:
+          - not_null
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
+      - name: valid_at
+        data_tests:
+          - not_null
+      - name: source
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reanalysis']
+      - name: retrieved_at
+        data_tests:
+          - not_null
+      - name: verification_version_count
+        description: Number of retained retrieval versions available for this city-hour.
+        data_tests:
+          - not_null
