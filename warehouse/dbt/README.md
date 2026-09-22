@@ -1,7 +1,8 @@
 # Forecast Flow dbt warehouse
 
 This project transforms immutable Kafka event payloads from `forecast_raw`
-into documented, query-friendly BigQuery views.
+and operational reference snapshots from `forecast_reference` into documented,
+query-friendly BigQuery views.
 
 ## Data flow
 
@@ -11,11 +12,16 @@ forecast_raw
   -> forecast_intermediate
   -> forecast_marts
   -> BI and analysis
+
+forecast_reference
+  -> forecast_staging
+  -> forecast_marts
 ```
 
-The `forecast_raw` dataset is owned by the Go cold-path service. dbt owns all
-three downstream datasets. Initial models are views so the project works in
-BigQuery Sandbox without DML and does not duplicate stored data.
+The `forecast_raw` dataset is owned by the Go cold-path service, while the
+`forecast_reference` dataset is populated by the one-shot location sync. dbt
+owns all three downstream datasets. Initial models are views so the project
+works in BigQuery Sandbox without DML and does not duplicate stored data.
 
 ## Local profile
 
@@ -41,6 +47,7 @@ docker compose --profile tools run --rm dbt build
 `dbt build` creates the downstream datasets/views, runs generic tests, and
 runs the custom grain tests in dependency order.
 
-The first star-schema dimension, `forecast_marts.dim_forecast_models`, provides
-one descriptive row per weather model and is tested against the model-based
-fact views.
+The star-schema dimensions provide one descriptive row per weather model in
+`forecast_marts.dim_forecast_models` and one row per supported city in
+`forecast_marts.dim_locations`. Relationship tests verify that forecast facts
+reference valid dimension records.

@@ -1,6 +1,28 @@
 version: 2
 
 models:
+  - name: dim_locations
+    description: Current descriptive geography and timezone attributes for each forecast location.
+    columns:
+      - name: location_id
+        description: Stable identifier used by forecast facts.
+        data_tests:
+          - not_null
+          - unique
+      - name: open_meteo_location_id
+        data_tests:
+          - not_null
+          - unique
+      - name: city
+        data_tests:
+          - not_null
+      - name: country_code
+        data_tests:
+          - not_null
+      - name: timezone
+        data_tests:
+          - not_null
+
   - name: dim_forecast_models
     description: One row per forecast model with its latest descriptive attributes and observed run range.
     columns:
@@ -25,6 +47,12 @@ models:
       - name: event_id
         data_tests:
           - not_null
+      - name: location_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
       - name: valid_at
         data_tests:
           - not_null
@@ -35,6 +63,12 @@ models:
       - name: event_id
         data_tests:
           - not_null
+      - name: location_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_locations')
+                field: location_id
       - name: valid_at
         data_tests:
           - not_null

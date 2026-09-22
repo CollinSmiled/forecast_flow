@@ -10,3 +10,11 @@ sources:
         description: Latest operational forecast snapshots used by the application.
       - name: model_run_events
         description: Model-run snapshots retained for historical forecast analysis.
+
+  - name: forecast_reference
+    description: Current reference snapshots synchronized from operational PostgreSQL tables.
+    database: "{{ env_var('DBT_BIGQUERY_PROJECT', 'forecast-flow-509406') }}"
+    schema: forecast_reference
+    tables:
+      - name: locations
+        description: Current location catalog used to enrich forecast facts.
