@@ -20,6 +20,7 @@ import (
 const (
 	OperationalForecastTable = "operational_forecast_events"
 	ModelRunTable            = "model_run_events"
+	VerificationWeatherTable = "verification_weather_events"
 	LocationsTable           = "locations"
 )
 
@@ -37,6 +38,7 @@ type tableLoader struct {
 type Writer struct {
 	operationalForecasts loader
 	modelRuns            loader
+	verificationWeather  loader
 }
 
 type ReferenceWriter struct {
@@ -79,6 +81,12 @@ func NewWriter(
 			location:         location,
 			writeDisposition: cloudbigquery.WriteAppend,
 		},
+		&tableLoader{
+			client:           client,
+			table:            dataset.Table(VerificationWeatherTable),
+			location:         location,
+			writeDisposition: cloudbigquery.WriteAppend,
+		},
 	), nil
 }
 
@@ -109,10 +117,15 @@ func NewReferenceWriter(
 	}), nil
 }
 
-func newWriter(operationalForecasts loader, modelRuns loader) *Writer {
+func newWriter(
+	operationalForecasts loader,
+	modelRuns loader,
+	verificationWeather loader,
+) *Writer {
 	return &Writer{
 		operationalForecasts: operationalForecasts,
 		modelRuns:            modelRuns,
+		verificationWeather:  verificationWeather,
 	}
 }
 
@@ -142,6 +155,22 @@ func (w *Writer) AppendModelRuns(
 ) error {
 	if err := loadRows(ctx, w.modelRuns, "model_run", rows); err != nil {
 		return fmt.Errorf("append model-run batch to BigQuery: %w", err)
+	}
+
+	return nil
+}
+
+func (w *Writer) AppendVerificationWeather(
+	ctx context.Context,
+	rows []coldstore.VerificationWeatherRow,
+) error {
+	if err := loadRows(
+		ctx,
+		w.verificationWeather,
+		"verification_weather",
+		rows,
+	); err != nil {
+		return fmt.Errorf("append verification weather batch to BigQuery: %w", err)
 	}
 
 	return nil

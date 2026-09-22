@@ -12,4 +12,9 @@ type Writer interface {
 		ctx context.Context,
 		rows []ModelRunRow,
 	) error
+
+	AppendVerificationWeather(
+		ctx context.Context,
+		rows []VerificationWeatherRow,
+	) error
 }

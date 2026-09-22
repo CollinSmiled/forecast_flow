@@ -134,6 +134,85 @@ func TestNewModelRunRowRejectsMismatchedKafkaKey(t *testing.T) {
 	}
 }
 
+func TestNewVerificationWeatherRow(t *testing.T) {
+	instant := testInstant()
+	weatherEvent := event.VerificationWeatherEventV1{
+		EventID:       "verification-123",
+		EventType:     event.VerificationWeatherEventType,
+		SchemaVersion: event.VerificationWeatherSchemaVersion,
+		OccurredAt:    instant,
+		Data: event.VerificationWeatherDataV1{
+			LocationID:    3,
+			Source:        "open_meteo_archive",
+			ReferenceKind: "reanalysis",
+			RetrievedAt:   instant,
+			Timezone:      "Asia/Jakarta",
+			PeriodStart:   instant.Add(-24 * time.Hour),
+			PeriodEnd:     instant.Add(-time.Hour),
+		},
+	}
+
+	row, err := NewVerificationWeatherRow(
+		weatherEvent,
+		KafkaRecordMetadata{
+			Topic:     event.VerificationWeatherTopic,
+			Partition: 2,
+			Offset:    8,
+			Key:       "3",
+			Timestamp: instant,
+		},
+		encodeEvent(t, weatherEvent),
+		instant.Add(time.Minute),
+	)
+	if err != nil {
+		t.Fatalf("create verification-weather row: %v", err)
+	}
+
+	if row.LocationID != 3 || row.KafkaOffset != 8 {
+		t.Errorf(
+			"location/offset = %d/%d, want 3/8",
+			row.LocationID,
+			row.KafkaOffset,
+		)
+	}
+	if row.ReferenceKind != "reanalysis" {
+		t.Errorf("reference kind = %q, want reanalysis", row.ReferenceKind)
+	}
+}
+
+func TestNewVerificationWeatherRowRejectsMismatchedKafkaKey(t *testing.T) {
+	instant := testInstant()
+	weatherEvent := event.VerificationWeatherEventV1{
+		EventID:       "verification-123",
+		EventType:     event.VerificationWeatherEventType,
+		SchemaVersion: event.VerificationWeatherSchemaVersion,
+		Data: event.VerificationWeatherDataV1{
+			LocationID:    3,
+			Source:        "open_meteo_archive",
+			ReferenceKind: "reanalysis",
+			RetrievedAt:   instant,
+			PeriodStart:   instant.Add(-24 * time.Hour),
+			PeriodEnd:     instant.Add(-time.Hour),
+		},
+	}
+
+	_, err := NewVerificationWeatherRow(
+		weatherEvent,
+		KafkaRecordMetadata{
+			Topic:     event.VerificationWeatherTopic,
+			Partition: 0,
+			Offset:    0,
+			Key:       "wrong-key",
+			Timestamp: instant,
+		},
+		encodeEvent(t, weatherEvent),
+		instant,
+	)
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
 func encodeEvent(t *testing.T, value any) []byte {
 	t.Helper()
 

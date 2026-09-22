@@ -40,7 +40,8 @@ func TestNewWriterRequiresConfiguration(t *testing.T) {
 func TestWriterLoadsOperationalForecastBatchAsNDJSON(t *testing.T) {
 	operational := &fakeLoader{}
 	modelRuns := &fakeLoader{}
-	writer := newWriter(operational, modelRuns)
+	verification := &fakeLoader{}
+	writer := newWriter(operational, modelRuns, verification)
 	rows := []coldstore.OperationalForecastRow{
 		{EventID: "event-operational-1", LocationID: 3},
 		{EventID: "event-operational-2", LocationID: 4},
@@ -58,12 +59,16 @@ func TestWriterLoadsOperationalForecastBatchAsNDJSON(t *testing.T) {
 	if modelRuns.calls != 0 {
 		t.Fatalf("model-run Load() calls = %d, want 0", modelRuns.calls)
 	}
+	if verification.calls != 0 {
+		t.Fatalf("verification Load() calls = %d, want 0", verification.calls)
+	}
 }
 
 func TestWriterLoadsModelRunBatchAsNDJSON(t *testing.T) {
 	operational := &fakeLoader{}
 	modelRuns := &fakeLoader{}
-	writer := newWriter(operational, modelRuns)
+	verification := &fakeLoader{}
+	writer := newWriter(operational, modelRuns, verification)
 	rows := []coldstore.ModelRunRow{
 		{EventID: "event-model-run-1", ModelID: "ecmwf_ifs"},
 	}
@@ -77,11 +82,34 @@ func TestWriterLoadsModelRunBatchAsNDJSON(t *testing.T) {
 	if operational.calls != 0 {
 		t.Fatalf("operational Load() calls = %d, want 0", operational.calls)
 	}
+	if verification.calls != 0 {
+		t.Fatalf("verification Load() calls = %d, want 0", verification.calls)
+	}
+}
+
+func TestWriterLoadsVerificationWeatherBatchAsNDJSON(t *testing.T) {
+	operational := &fakeLoader{}
+	modelRuns := &fakeLoader{}
+	verification := &fakeLoader{}
+	writer := newWriter(operational, modelRuns, verification)
+	rows := []coldstore.VerificationWeatherRow{
+		{EventID: "event-verification-1", ReferenceKind: "reanalysis"},
+	}
+
+	err := writer.AppendVerificationWeather(context.Background(), rows)
+	if err != nil {
+		t.Fatalf("AppendVerificationWeather() error = %v", err)
+	}
+
+	assertLoadedRows(t, verification, "verification_weather", 1)
+	if operational.calls != 0 || modelRuns.calls != 0 {
+		t.Fatal("non-verification loader was called")
+	}
 }
 
 func TestWriterSkipsEmptyBatch(t *testing.T) {
 	operational := &fakeLoader{}
-	writer := newWriter(operational, &fakeLoader{})
+	writer := newWriter(operational, &fakeLoader{}, &fakeLoader{})
 
 	if err := writer.AppendOperationalForecasts(context.Background(), nil); err != nil {
 		t.Fatalf("AppendOperationalForecasts() error = %v", err)
@@ -96,11 +124,11 @@ func TestWriterUsesDeterministicJobID(t *testing.T) {
 	second := &fakeLoader{}
 	rows := []coldstore.OperationalForecastRow{{EventID: "event-1"}}
 
-	if err := newWriter(first, &fakeLoader{}).
+	if err := newWriter(first, &fakeLoader{}, &fakeLoader{}).
 		AppendOperationalForecasts(context.Background(), rows); err != nil {
 		t.Fatalf("first append: %v", err)
 	}
-	if err := newWriter(second, &fakeLoader{}).
+	if err := newWriter(second, &fakeLoader{}, &fakeLoader{}).
 		AppendOperationalForecasts(context.Background(), rows); err != nil {
 		t.Fatalf("second append: %v", err)
 	}
@@ -111,7 +139,11 @@ func TestWriterUsesDeterministicJobID(t *testing.T) {
 
 func TestWriterWrapsLoadError(t *testing.T) {
 	loadError := errors.New("load failed")
-	writer := newWriter(&fakeLoader{err: loadError}, &fakeLoader{})
+	writer := newWriter(
+		&fakeLoader{err: loadError},
+		&fakeLoader{},
+		&fakeLoader{},
+	)
 
 	err := writer.AppendOperationalForecasts(
 		context.Background(),

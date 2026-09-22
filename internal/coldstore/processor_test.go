@@ -110,6 +110,56 @@ func TestProcessorRoutesModelRun(t *testing.T) {
 	}
 }
 
+func TestProcessorRoutesVerificationWeather(t *testing.T) {
+	instant := testInstant()
+	weatherEvent := event.VerificationWeatherEventV1{
+		EventID:       "verification-123",
+		EventType:     event.VerificationWeatherEventType,
+		SchemaVersion: event.VerificationWeatherSchemaVersion,
+		OccurredAt:    instant,
+		Data: event.VerificationWeatherDataV1{
+			LocationID:    3,
+			Source:        "open_meteo_archive",
+			ReferenceKind: "reanalysis",
+			RetrievedAt:   instant,
+			Timezone:      "Asia/Jakarta",
+			PeriodStart:   instant.Add(-24 * time.Hour),
+			PeriodEnd:     instant.Add(-time.Hour),
+		},
+	}
+	payload := encodeProcessorEvent(t, weatherEvent)
+	writer := &recordingWriter{}
+	processor := newTestProcessor(t, writer, instant.Add(time.Minute))
+
+	err := processor.Process(
+		context.Background(),
+		KafkaRecordMetadata{
+			Topic:     event.VerificationWeatherTopic,
+			Partition: 2,
+			Offset:    8,
+			Key:       weatherEvent.PartitionKey(),
+			Timestamp: instant,
+		},
+		payload,
+	)
+	if err != nil {
+		t.Fatalf("process verification weather: %v", err)
+	}
+
+	if len(writer.verification) != 1 {
+		t.Fatalf("verification writes = %d, want 1", len(writer.verification))
+	}
+	if len(writer.operational) != 0 || len(writer.modelRuns) != 0 {
+		t.Fatal("verification event was written to another destination")
+	}
+	if writer.verification[0].ReferenceKind != "reanalysis" {
+		t.Errorf(
+			"reference kind = %q, want reanalysis",
+			writer.verification[0].ReferenceKind,
+		)
+	}
+}
+
 func TestProcessorWritesRecordsAsOneBatchPerTopic(t *testing.T) {
 	instant := testInstant()
 	writer := &recordingWriter{}
@@ -187,7 +237,9 @@ func TestProcessorMapsEntireBatchBeforeWriting(t *testing.T) {
 	if err := processor.ProcessBatch(context.Background(), records); err == nil {
 		t.Fatal("expected malformed event error")
 	}
-	if writer.operationalCalls != 0 || writer.modelRunCalls != 0 {
+	if writer.operationalCalls != 0 ||
+		writer.modelRunCalls != 0 ||
+		writer.verificationCalls != 0 {
 		t.Fatal("partially mapped batch was written")
 	}
 }
@@ -217,7 +269,9 @@ func TestProcessorDoesNotWriteMalformedEvent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected malformed event error")
 	}
-	if len(writer.operational) != 0 || len(writer.modelRuns) != 0 {
+	if len(writer.operational) != 0 ||
+		len(writer.modelRuns) != 0 ||
+		len(writer.verification) != 0 {
 		t.Fatal("malformed event was written")
 	}
 }
@@ -255,11 +309,13 @@ func TestProcessorReturnsWriterError(t *testing.T) {
 }
 
 type recordingWriter struct {
-	operational      []OperationalForecastRow
-	modelRuns        []ModelRunRow
-	operationalCalls int
-	modelRunCalls    int
-	err              error
+	operational       []OperationalForecastRow
+	modelRuns         []ModelRunRow
+	verification      []VerificationWeatherRow
+	operationalCalls  int
+	modelRunCalls     int
+	verificationCalls int
+	err               error
 }
 
 func (writer *recordingWriter) AppendOperationalForecasts(
@@ -283,6 +339,18 @@ func (writer *recordingWriter) AppendModelRuns(
 	}
 	writer.modelRunCalls++
 	writer.modelRuns = append(writer.modelRuns, rows...)
+	return nil
+}
+
+func (writer *recordingWriter) AppendVerificationWeather(
+	_ context.Context,
+	rows []VerificationWeatherRow,
+) error {
+	if writer.err != nil {
+		return writer.err
+	}
+	writer.verificationCalls++
+	writer.verification = append(writer.verification, rows...)
 	return nil
 }
 

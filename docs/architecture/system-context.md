@@ -11,7 +11,7 @@ Open-Meteo -> ingestion -> Kafka -> hot path -> PostgreSQL -> API -> Flutter
 ```
 
 The hot path is implemented. The runnable cold-path service includes row
-mapping, dual-topic Kafka micro-batching, and atomic BigQuery load jobs. The
+mapping, three-topic Kafka micro-batching, and atomic BigQuery load jobs. The
 initial dbt layers and marts are implemented as BigQuery views. Automated dbt
 deployment and Power BI reporting remain planned work.
 
@@ -20,7 +20,9 @@ Forecast verification uses a separate `weather.verification` event stream and
 historical reanalysis, which combines measurements and model estimates; they
 must not be presented as direct weather-station observations. The event
 contract, Open-Meteo retrieval, Kafka publishing, and raw infrastructure are
-implemented, while cold-path mapping and accuracy marts remain planned work.
+implemented. The cold path loads these events into BigQuery and dbt exposes a
+deduplicated staging view. Hourly expansion and accuracy marts remain planned
+work.
 
 The hourly forecast grain is:
 

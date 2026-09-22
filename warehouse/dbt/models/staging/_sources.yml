@@ -10,6 +10,8 @@ sources:
         description: Latest operational forecast snapshots used by the application.
       - name: model_run_events
         description: Model-run snapshots retained for historical forecast analysis.
+      - name: verification_weather_events
+        description: Historical reanalysis snapshots used as forecast verification references.
 
   - name: forecast_reference
     description: Current reference snapshots synchronized from operational PostgreSQL tables.

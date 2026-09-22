@@ -50,6 +50,7 @@ func (processor *Processor) ProcessBatch(
 	ingestedAt := processor.now().UTC()
 	operationalRows := make([]OperationalForecastRow, 0, len(records))
 	modelRunRows := make([]ModelRunRow, 0, len(records))
+	verificationRows := make([]VerificationWeatherRow, 0, len(records))
 
 	for _, record := range records {
 		switch record.Metadata.Topic {
@@ -73,6 +74,16 @@ func (processor *Processor) ProcessBatch(
 				return err
 			}
 			modelRunRows = append(modelRunRows, row)
+		case event.VerificationWeatherTopic:
+			row, err := processor.mapVerificationWeather(
+				record.Metadata,
+				record.Payload,
+				ingestedAt,
+			)
+			if err != nil {
+				return err
+			}
+			verificationRows = append(verificationRows, row)
 		default:
 			return fmt.Errorf(
 				"%w %q",
@@ -94,6 +105,15 @@ func (processor *Processor) ProcessBatch(
 	if len(modelRunRows) > 0 {
 		if err := processor.writer.AppendModelRuns(ctx, modelRunRows); err != nil {
 			return fmt.Errorf("append model-run batch: %w", err)
+		}
+	}
+
+	if len(verificationRows) > 0 {
+		if err := processor.writer.AppendVerificationWeather(
+			ctx,
+			verificationRows,
+		); err != nil {
+			return fmt.Errorf("append verification weather batch: %w", err)
 		}
 	}
 
@@ -147,6 +167,35 @@ func (processor *Processor) mapModelRun(
 	)
 	if err != nil {
 		return ModelRunRow{}, fmt.Errorf("map model-run event: %w", err)
+	}
+
+	return row, nil
+}
+
+func (processor *Processor) mapVerificationWeather(
+	metadata KafkaRecordMetadata,
+	payload []byte,
+	ingestedAt time.Time,
+) (VerificationWeatherRow, error) {
+	var weatherEvent event.VerificationWeatherEventV1
+	if err := json.Unmarshal(payload, &weatherEvent); err != nil {
+		return VerificationWeatherRow{}, fmt.Errorf(
+			"decode verification weather event: %w",
+			err,
+		)
+	}
+
+	row, err := NewVerificationWeatherRow(
+		weatherEvent,
+		metadata,
+		payload,
+		ingestedAt,
+	)
+	if err != nil {
+		return VerificationWeatherRow{}, fmt.Errorf(
+			"map verification weather event: %w",
+			err,
+		)
 	}
 
 	return row, nil

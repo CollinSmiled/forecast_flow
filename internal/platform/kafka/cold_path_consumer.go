@@ -83,6 +83,7 @@ func NewColdPathConsumer(
 		kgo.ConsumeTopics(
 			event.LatestForecastTopic,
 			event.ForecastRunTopic,
+			event.VerificationWeatherTopic,
 		),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
 		kgo.DisableAutoCommit(),
@@ -194,8 +195,8 @@ func (consumer *ColdPathConsumer) processBatch(
 		coldRecords  []coldstore.Record
 	}
 
-	topicOrder := make([]string, 0, 2)
-	topicBatches := make(map[string]*topicBatch, 2)
+	topicOrder := make([]string, 0, 3)
+	topicBatches := make(map[string]*topicBatch, 3)
 	for _, record := range records {
 		if record == nil {
 			return errors.New("Kafka record is required")

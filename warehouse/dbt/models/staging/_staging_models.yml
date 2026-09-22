@@ -60,3 +60,32 @@ models:
       - name: forecast_run_at
         data_tests:
           - not_null
+
+  - name: stg_verification_weather_events
+    description: One deduplicated reanalysis event with its hourly reference weather JSON exposed.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+          - unique
+      - name: location_id
+        data_tests:
+          - not_null
+      - name: reference_kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['reanalysis']
+      - name: period_start
+        data_tests:
+          - not_null
+      - name: period_end
+        data_tests:
+          - not_null
+      - name: retrieved_at
+        data_tests:
+          - not_null
+      - name: verification_timezone
+        data_tests:
+          - not_null

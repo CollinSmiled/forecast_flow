@@ -135,7 +135,7 @@ func TestColdPathConsumerDoesNotCommitProcessorFailure(t *testing.T) {
 
 func TestColdPathConsumerProcessesAndCommitsTopicsIndependently(t *testing.T) {
 	processor := &recordingColdPathProcessor{}
-	committedTopics := make([]string, 0, 2)
+	committedTopics := make([]string, 0, 3)
 	consumer := &ColdPathConsumer{
 		processor: processor,
 		client: &fakeColdPathKafkaClient{commit: func(
@@ -150,17 +150,19 @@ func TestColdPathConsumerProcessesAndCommitsTopicsIndependently(t *testing.T) {
 	err := consumer.processBatch(context.Background(), []*kgo.Record{
 		{Topic: event.LatestForecastTopic},
 		{Topic: event.ForecastRunTopic},
+		{Topic: event.VerificationWeatherTopic},
 	})
 	if err != nil {
 		t.Fatalf("process batch: %v", err)
 	}
-	if processor.calls != 2 {
-		t.Fatalf("processor calls = %d, want 2", processor.calls)
+	if processor.calls != 3 {
+		t.Fatalf("processor calls = %d, want 3", processor.calls)
 	}
-	if len(committedTopics) != 2 ||
+	if len(committedTopics) != 3 ||
 		committedTopics[0] != event.LatestForecastTopic ||
-		committedTopics[1] != event.ForecastRunTopic {
-		t.Fatalf("committed topics = %v, want both topics in fetch order", committedTopics)
+		committedTopics[1] != event.ForecastRunTopic ||
+		committedTopics[2] != event.VerificationWeatherTopic {
+		t.Fatalf("committed topics = %v, want all topics in fetch order", committedTopics)
 	}
 }
 
